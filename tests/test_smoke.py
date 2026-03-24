@@ -17,6 +17,7 @@ from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
 FIXTURES = Path(__file__).parent / "fixtures" / "sample"
 MULTI_REPO = Path(__file__).parent / "fixtures" / "multi-repo"
 MIXED_MODULE = Path(__file__).parent / "fixtures" / "mixed-module"
+MULTI_PROJECT = Path(__file__).parent / "fixtures" / "multi-project"
 
 
 # ---- Field variation matching tests ----
@@ -314,6 +315,101 @@ def test_auto_scan_full_pipeline(tmp_path):
     print(f"    XSLT_FILE nodes: {len(xslt_file_nodes)}")
 
 
+# ---- Multi-project / multi-module tests ----
+
+def test_discover_modules():
+    """ModuleScanner should detect sub-modules via pom.xml / src/ layout."""
+    scanner = ModuleScanner()
+
+    # project-alpha has two sub-modules: trade-service and common-lib (both have pom.xml)
+    modules = scanner.discover_modules(MULTI_PROJECT / "project-alpha")
+    module_names = [m.name for m in modules]
+    assert "trade-service" in module_names, f"Missing trade-service, got {module_names}"
+    assert "common-lib" in module_names, f"Missing common-lib, got {module_names}"
+
+    # project-beta has one sub-module: settlement-module
+    modules_beta = scanner.discover_modules(MULTI_PROJECT / "project-beta")
+    module_names_beta = [m.name for m in modules_beta]
+    assert "settlement-module" in module_names_beta, f"Missing settlement-module, got {module_names_beta}"
+
+
+def test_scan_project():
+    """scan_project should discover modules and scan each one."""
+    scanner = ModuleScanner()
+    project = scanner.scan_project(MULTI_PROJECT / "project-alpha", name="alpha")
+
+    assert len(project.modules) >= 2, f"Expected >= 2 modules, got {len(project.modules)}"
+    assert project.total_java >= 2, f"Expected >= 2 java files, got {project.total_java}"
+    assert project.total_xslt >= 1, f"Expected >= 1 xslt file, got {project.total_xslt}"
+
+    # trade-service module should have both Java and XSLT
+    trade_mod = [m for m in project.modules if "trade-service" in m.name]
+    assert len(trade_mod) == 1, f"Expected trade-service module, got {[m.name for m in project.modules]}"
+    assert len(trade_mod[0].java_files) >= 1
+    assert len(trade_mod[0].xslt_files) >= 1
+    assert len(trade_mod[0].xslt_refs) >= 1, "trade-service should have XSLT refs"
+
+    # common-lib module should have only Java
+    lib_mod = [m for m in project.modules if "common-lib" in m.name]
+    assert len(lib_mod) == 1
+    assert len(lib_mod[0].java_files) >= 1
+    assert len(lib_mod[0].xslt_files) == 0
+
+
+def test_multi_project_full_pipeline(tmp_path):
+    """End-to-end: two projects, each with modules, stitched into one graph."""
+    from orchestrator.parser import SynapseConfig, SynapseTracer
+
+    config = SynapseConfig(
+        repos=[
+            RepoConfig(
+                name="alpha",
+                path=MULTI_PROJECT / "project-alpha",
+                project_scan=True,
+            ),
+            RepoConfig(
+                name="beta",
+                path=MULTI_PROJECT / "project-beta",
+                project_scan=True,
+            ),
+        ],
+        target_storages=["pyvis"],
+        output_dir=tmp_path,
+    )
+
+    tracer = SynapseTracer(config)
+    lineage = tracer.trace()
+
+    assert len(lineage.nodes) > 0, "Should have nodes"
+    assert len(lineage.edges) > 0, "Should have edges"
+
+    # Should have LOADS_XSLT edges (Java loading XSLT)
+    loads_xslt = [e for e in lineage.edges if e.edge_type.value == "LOADS_XSLT"]
+    assert len(loads_xslt) > 0, "Should have LOADS_XSLT edges"
+
+    # Should have cross-repo links (alpha constants <-> beta string literals)
+    cross_repo = [e for e in lineage.edges if e.edge_type.value == "CROSS_REPO"]
+    assert len(cross_repo) > 0, (
+        f"Should have CROSS_REPO edges linking alpha and beta, got 0. "
+        f"Total edges: {len(lineage.edges)}"
+    )
+
+    # Output files should exist
+    assert (tmp_path / "lineage_graph.html").exists()
+    assert (tmp_path / "lineage_graph.json").exists()
+    assert (tmp_path / "fields" / "index.html").exists()
+
+    data = json.loads((tmp_path / "lineage_graph.json").read_text())
+
+    # Nodes should come from multiple module-qualified repos
+    repos_in_graph = {n.get("repo") for n in data["nodes"] if n.get("repo")}
+    assert len(repos_in_graph) >= 2, f"Expected nodes from >= 2 repos, got {repos_in_graph}"
+
+    print(f"\n    Multi-project pipeline: {len(lineage.nodes)} nodes, {len(lineage.edges)} edges")
+    print(f"    LOADS_XSLT: {len(loads_xslt)}, CROSS_REPO: {len(cross_repo)}")
+    print(f"    Repos in graph: {repos_in_graph}")
+
+
 if __name__ == "__main__":
     print("Running smoke tests...")
 
@@ -355,5 +451,15 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as td:
         test_auto_scan_full_pipeline(Path(td))
     print("  Auto-scan full pipeline: PASS")
+
+    test_discover_modules()
+    print("  Discover modules: PASS")
+
+    test_scan_project()
+    print("  Scan project: PASS")
+
+    with tempfile.TemporaryDirectory() as td:
+        test_multi_project_full_pipeline(Path(td))
+    print("  Multi-project full pipeline: PASS")
 
     print("\nAll smoke tests passed!")

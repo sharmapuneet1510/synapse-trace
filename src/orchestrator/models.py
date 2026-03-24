@@ -62,16 +62,18 @@ class LineageEdge:
 
 @dataclass
 class RepoConfig:
-    """Configuration for a single repository / module.
+    """Configuration for a single repository / project.
 
-    Supports three modes:
-      - scan_dirs: auto-discover .java and .xsl/.xslt files (recommended)
+    Supports four modes:
+      - project_scan: True  — auto-discover modules within the repo root (recommended for multi-module)
+      - scan_dirs: auto-discover .java and .xsl/.xslt files in specified dirs
       - java_dirs + xslt_dirs: explicit separation (legacy)
-      - Both: scan_dirs are auto-detected, explicit dirs are added on top
+      - Both scan_dirs and explicit dirs: combined
     """
 
     name: str
     path: Path
+    project_scan: bool = False
     scan_dirs: list[Path] = field(default_factory=list)
     java_dirs: list[Path] = field(default_factory=list)
     xslt_dirs: list[Path] = field(default_factory=list)

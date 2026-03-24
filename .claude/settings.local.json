@@ -13,7 +13,8 @@
       "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -c \"\nimport json\ndata = json.load\\(open\\('output/lineage_graph.json'\\)\\)\nprint\\(f'Nodes: {len\\(data[\\\\\"nodes\\\\\"]\\)}'\\)\nprint\\(f'Edges: {len\\(data[\\\\\"links\\\\\"]\\)}'\\)\nprint\\(\\)\nprint\\('--- Cross-language edges \\(XSLT → Java\\) ---'\\)\nfor link in data['links']:\n    if 'xslt::' in link['source'] and 'java::' in link['target']:\n        print\\(f'  {link[\\\\\"source\\\\\"]}'\\)\n        print\\(f'    → {link[\\\\\"target\\\\\"]}'\\)\n        print\\(f'    type: {link[\\\\\"type\\\\\"]}'\\)\n        print\\(\\)\n\" 2>&1)",
       "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -m orchestrator.parser --config tests/fixtures/multi-repo/repos.json --output-dir output 2>&1)",
       "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -m orchestrator.parser --scan tests/fixtures/mixed-module --output-dir output 2>&1)",
-      "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -m pytest tests/ -v 2>&1)"
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -m pytest tests/ -v 2>&1)",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.10/bin/python3 -m orchestrator.parser --project tests/fixtures/multi-project/project-alpha tests/fixtures/multi-project/project-beta --output-dir output-multiproj 2>&1)"
     ]
   }
 }

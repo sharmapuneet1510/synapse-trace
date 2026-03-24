@@ -1,9 +1,10 @@
 """Main orchestrator — coordinates scanning, parsing, stitching, and graph persistence.
 
-Supports three input modes:
-  1. --scan DIRS       Auto-discover .java and .xsl/.xslt files in each directory
-  2. --config FILE     JSON config with repos (scan_dirs or java_dirs/xslt_dirs)
-  3. --java-dirs/--xslt-dirs  Legacy explicit separation
+Supports four input modes:
+  1. --project DIRS     Auto-discover modules within each project root (multi-module)
+  2. --scan DIRS        Auto-discover .java and .xsl/.xslt files in each directory
+  3. --config FILE      JSON config with repos (project_scan, scan_dirs, or java_dirs/xslt_dirs)
+  4. --java-dirs/--xslt-dirs  Legacy explicit separation
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from pathlib import Path
 from orchestrator.models import RepoConfig, StitchedLineage
 from orchestrator.parsers.java_parser import JavaParser
 from orchestrator.parsers.xslt_parser import XsltParser
-from orchestrator.scanner import ModuleScanner
+from orchestrator.scanner import ModuleScanner, ScannedModule
 from orchestrator.stitcher import Stitcher
 from orchestrator.storage.base_provider import BaseGraphProvider
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
@@ -83,6 +84,33 @@ class SynapseTracer:
                 )
         return providers
 
+    def _parse_module(
+        self,
+        module: ScannedModule,
+        java_parser: JavaParser,
+        xslt_parser: XsltParser,
+        all_java_findings: list,
+        all_xslt_findings: list,
+        indent: str = "    ",
+    ) -> None:
+        """Parse all files in a scanned module and append findings."""
+        for java_file in module.java_files:
+            findings = java_parser.parse_file(java_file)
+            all_java_findings.extend(findings)
+
+        for xslt_file in module.xslt_files:
+            findings = xslt_parser.parse_file(xslt_file)
+            all_xslt_findings.extend(findings)
+
+        if module.xslt_refs:
+            print(f"{indent}Cross-language refs:")
+            for ref in module.xslt_refs:
+                resolved = ref.xslt_resolved or "(unresolved)"
+                print(
+                    f"{indent}  {ref.java_class}.{ref.java_method}() "
+                    f"-> {ref.xslt_filename} [{ref.ref_type}] -> {resolved}"
+                )
+
     def trace(self) -> StitchedLineage:
         """Run the full pipeline across all configured repos."""
         all_java_findings = []
@@ -90,10 +118,26 @@ class SynapseTracer:
 
         for repo in self._config.repos:
             repo.resolve_dirs()
-            print(f"\n  Repository: {repo.name} ({repo.path})")
+            print(f"\n  Project: {repo.name} ({repo.path})")
 
             java_parser = JavaParser(repo_name=repo.name)
             xslt_parser = XsltParser(repo_name=repo.name)
+
+            # --- Project scan mode: auto-discover modules ---
+            if repo.project_scan:
+                project = self._scanner.scan_project(repo.path, name=repo.name)
+                print(f"    {project.summary()}")
+
+                for module in project.modules:
+                    print(f"    Module: {module.name} — {module.summary()}")
+                    # Use module-qualified repo name for node IDs
+                    mod_java = JavaParser(repo_name=module.name)
+                    mod_xslt = XsltParser(repo_name=module.name)
+                    self._parse_module(
+                        module, mod_java, mod_xslt,
+                        all_java_findings, all_xslt_findings,
+                        indent="      ",
+                    )
 
             # --- Auto-scan mode: discover files in scan_dirs ---
             if repo.scan_dirs:
@@ -104,26 +148,10 @@ class SynapseTracer:
 
                     module = self._scanner.scan(d, name=repo.name)
                     print(f"    Scanned: {module.summary()}")
-
-                    # Parse discovered Java files
-                    for java_file in module.java_files:
-                        findings = java_parser.parse_file(java_file)
-                        all_java_findings.extend(findings)
-
-                    # Parse discovered XSLT files
-                    for xslt_file in module.xslt_files:
-                        findings = xslt_parser.parse_file(xslt_file)
-                        all_xslt_findings.extend(findings)
-
-                    # Report cross-language references found
-                    if module.xslt_refs:
-                        print(f"    Cross-language refs:")
-                        for ref in module.xslt_refs:
-                            resolved = ref.xslt_resolved or "(unresolved)"
-                            print(
-                                f"      {ref.java_class}.{ref.java_method}() "
-                                f"-> {ref.xslt_filename} [{ref.ref_type}] -> {resolved}"
-                            )
+                    self._parse_module(
+                        module, java_parser, xslt_parser,
+                        all_java_findings, all_xslt_findings,
+                    )
 
             # --- Explicit dirs mode: parse java_dirs and xslt_dirs ---
             for d in repo.java_dirs:
@@ -174,7 +202,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  # Auto-scan a module (recommended):
+  # Auto-discover modules in a project (recommended for multi-module):
+  synapse-trace --project /path/to/project-root
+
+  # Multiple projects:
+  synapse-trace --project /path/to/project-a /path/to/project-b
+
+  # Auto-scan a single module:
   synapse-trace --scan src/
 
   # Auto-scan multiple modules:
@@ -188,7 +222,17 @@ Examples:
         """,
     )
 
-    # Auto-scan mode (recommended)
+    # Project scan mode (recommended for multi-module)
+    parser.add_argument(
+        "--project", nargs="+", default=[],
+        help="Project root(s) to auto-discover modules in (pom.xml, build.gradle, src/ layout)",
+    )
+    parser.add_argument(
+        "--project-names", nargs="+", default=[],
+        help="Names for each --project root (optional, defaults to dir name)",
+    )
+
+    # Auto-scan mode
     parser.add_argument(
         "--scan", nargs="+", default=[],
         help="Directories to auto-scan for .java and .xsl/.xslt files",
@@ -225,7 +269,18 @@ Examples:
 
     repos: list[RepoConfig] = []
 
-    if args.scan:
+    if args.project:
+        # Project scan mode — auto-discover modules
+        for i, proj_dir in enumerate(args.project):
+            name = args.project_names[i] if i < len(args.project_names) else Path(proj_dir).name
+            repos.append(
+                RepoConfig(
+                    name=name,
+                    path=Path(proj_dir),
+                    project_scan=True,
+                )
+            )
+    elif args.scan:
         # Auto-scan mode
         for i, scan_dir in enumerate(args.scan):
             name = args.names[i] if i < len(args.names) else Path(scan_dir).name
@@ -243,6 +298,7 @@ Examples:
                 RepoConfig(
                     name=r["name"],
                     path=Path(r["path"]),
+                    project_scan=r.get("project_scan", False),
                     scan_dirs=[Path(d) for d in r.get("scan_dirs", [])],
                     java_dirs=[Path(d) for d in r.get("java_dirs", [])],
                     xslt_dirs=[Path(d) for d in r.get("xslt_dirs", [])],
@@ -276,7 +332,7 @@ Examples:
 
     print("Synapse Trace — Data Lineage Analysis")
     print("=" * 50)
-    print(f"  Repos: {len(config.repos)}")
+    print(f"  Repos/Projects: {len(config.repos)}")
 
     tracer = SynapseTracer(config)
     lineage = tracer.trace()
