@@ -1,0 +1,54 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "\"TRADE_STATUS\"",
+      "type": "JAVA_CONSTANT",
+      "title": "<b>\"TRADE_STATUS\"</b><br>Type: JAVA_CONSTANT<br>File: tests/fixtures/multi-repo/lib-common/java/FieldNames.java<br>Line: 7<br>MD5: 35c0080ab248...<br><pre>public static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";</pre><br>literal: True<br>bare_name: TRADE_STATUS<br>repo: lib-common",
+      "color": "#E67E22",
+      "shape": "square",
+      "file_path": "tests/fixtures/multi-repo/lib-common/java/FieldNames.java",
+      "line_number": 7,
+      "code_snippet": "public static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";",
+      "md5_hash": "35c0080ab248e4fb16122be7836ce2b8",
+      "literal": true,
+      "bare_name": "TRADE_STATUS",
+      "repo": "lib-common",
+      "size": 10,
+      "id": "java::literal::com.bank.common.FieldNames::TRADE_STATUS"
+    },
+    {
+      "label": "\"TRADE_STATUS\"",
+      "type": "JAVA_CONSTANT",
+      "title": "<b>\"TRADE_STATUS\"</b><br>Type: JAVA_CONSTANT<br>File: tests/fixtures/multi-repo/app-trade/java/TradeService.java<br>Line: 20<br>MD5: a9394861d856...<br><pre>String status = (String) message.get(\"TRADE_STATUS\");</pre><br>literal: True<br>bare_name: TRADE_STATUS<br>repo: app-trade",
+      "color": "#E67E22",
+      "shape": "square",
+      "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java",
+      "line_number": 20,
+      "code_snippet": "String status = (String) message.get(\"TRADE_STATUS\");",
+      "md5_hash": "a9394861d8560682b0241acfdc269266",
+      "literal": true,
+      "bare_name": "TRADE_STATUS",
+      "repo": "app-trade",
+      "size": 10,
+      "id": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS"
+    }
+  ],
+  "links": [
+    {
+      "type": "CROSS_REPO",
+      "color": "#E91E63",
+      "title": "CROSS_REPO",
+      "label": "CROSS_REPO",
+      "match_type": "cross_repo_constant",
+      "bare_name": "trade_status",
+      "repo_a": "lib-common",
+      "repo_b": "app-trade",
+      "width": 1,
+      "source": "java::literal::com.bank.common.FieldNames::TRADE_STATUS",
+      "target": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS"
+    }
+  ]
+}

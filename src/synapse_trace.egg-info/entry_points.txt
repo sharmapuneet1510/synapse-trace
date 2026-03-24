@@ -1,0 +1,2 @@
+[console_scripts]
+synapse-trace = orchestrator.parser:main

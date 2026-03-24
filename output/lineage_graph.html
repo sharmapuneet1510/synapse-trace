@@ -1,0 +1,535 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 900px;
+                 background-color: #1a1a2e;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"code_snippet": "com.bank.trade.service.TradeService", "color": "#4A90D9", "file_path": "", "font": {"color": "#e0e0e0"}, "id": "java::class::com.bank.trade.service.TradeService", "label": "TradeService", "line_number": 0, "md5_hash": "ddaa3dd0272f3485efce5765b075fc84", "repo": "app-trade", "shape": "box", "size": 10, "title": "\u003cb\u003eTradeService\u003c/b\u003e\u003cbr\u003eType: JAVA_CLASS\u003cbr\u003eFile: \u003cbr\u003eLine: 0\u003cbr\u003eMD5: ddaa3dd0272f...\u003cbr\u003e\u003cpre\u003ecom.bank.trade.service.TradeService\u003c/pre\u003e\u003cbr\u003erepo: app-trade", "type": "JAVA_CLASS"}, {"code_snippet": "TradeDTO trade = mapper.readValue(payload, TradeDTO.class);", "color": "#7EC8E3", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::method::com.bank.trade.service.TradeService::processMessage", "label": "TradeService.processMessage()", "line_number": 22, "md5_hash": "60dd3281776e45e36ca23ed4bed22f38", "repo": "app-trade", "shape": "ellipse", "size": 10, "title": "\u003cb\u003eTradeService.processMessage()\u003c/b\u003e\u003cbr\u003eType: JAVA_METHOD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 22\u003cbr\u003eMD5: 60dd3281776e...\u003cbr\u003e\u003cpre\u003eTradeDTO trade = mapper.readValue(payload, TradeDTO.class);\u003c/pre\u003e\u003cbr\u003erepo: app-trade", "type": "JAVA_METHOD"}, {"bare_name": "TRADE_STATUS", "code_snippet": "public static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/FieldNames.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.FieldNames::TRADE_STATUS", "label": "\"TRADE_STATUS\"", "line_number": 7, "literal": true, "md5_hash": "35c0080ab248e4fb16122be7836ce2b8", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"TRADE_STATUS\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/FieldNames.java\u003cbr\u003eLine: 7\u003cbr\u003eMD5: 35c0080ab248...\u003cbr\u003e\u003cpre\u003epublic static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: TRADE_STATUS\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "TRADE_STATUS", "code_snippet": "String status = (String) message.get(\"TRADE_STATUS\");", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS", "label": "\"TRADE_STATUS\"", "line_number": 20, "literal": true, "md5_hash": "a9394861d8560682b0241acfdc269266", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003e\"TRADE_STATUS\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 20\u003cbr\u003eMD5: a9394861d856...\u003cbr\u003e\u003cpre\u003eString status = (String) message.get(\"TRADE_STATUS\");\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: TRADE_STATUS\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"bare_name": "N_EFFECTIVE_DATE", "code_snippet": "* This is in a library repo that multiple apps depend on.", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_EFFECTIVE_DATE", "label": "\"N_EFFECTIVE_DATE\"", "line_number": 5, "literal": true, "md5_hash": "691fa15d828916b937b7cf49a5db83a7", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_EFFECTIVE_DATE\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 5\u003cbr\u003eMD5: 691fa15d8289...\u003cbr\u003e\u003cpre\u003e* This is in a library repo that multiple apps depend on.\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_EFFECTIVE_DATE\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "N_EFFECTIVE_DATE", "code_snippet": "String effectiveDate = (String) message.get(MessageKey.N_EFFECTIVE_DATE);", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::const::com.bank.trade.service.TradeService::MessageKey.N_EFFECTIVE_DATE", "label": "MessageKey.N_EFFECTIVE_DATE", "line_number": 13, "md5_hash": "32b55438504ded5e115274789644f164", "qualifier": "MessageKey", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003eMessageKey.N_EFFECTIVE_DATE\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 13\u003cbr\u003eMD5: 32b55438504d...\u003cbr\u003e\u003cpre\u003eString effectiveDate = (String) message.get(MessageKey.N_EFFECTIVE_DATE);\u003c/pre\u003e\u003cbr\u003equalifier: MessageKey\u003cbr\u003ebare_name: N_EFFECTIVE_DATE\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"bare_name": "N_COUNTERPARTY_2", "code_snippet": "*/", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_COUNTERPARTY_2", "label": "\"N_COUNTERPARTY_2\"", "line_number": 6, "literal": true, "md5_hash": "c4c9bdd47ee05028cb84873da0ebf2b5", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_COUNTERPARTY_2\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 6\u003cbr\u003eMD5: c4c9bdd47ee0...\u003cbr\u003e\u003cpre\u003e*/\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_COUNTERPARTY_2\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "N_COUNTERPARTY_2", "code_snippet": "String counterparty = (String) message.get(MessageKey.N_COUNTERPARTY_2);", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::const::com.bank.trade.service.TradeService::MessageKey.N_COUNTERPARTY_2", "label": "MessageKey.N_COUNTERPARTY_2", "line_number": 14, "md5_hash": "6da8e76f7b8fc74ef31a435d36bf305b", "qualifier": "MessageKey", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003eMessageKey.N_COUNTERPARTY_2\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 14\u003cbr\u003eMD5: 6da8e76f7b8f...\u003cbr\u003e\u003cpre\u003eString counterparty = (String) message.get(MessageKey.N_COUNTERPARTY_2);\u003c/pre\u003e\u003cbr\u003equalifier: MessageKey\u003cbr\u003ebare_name: N_COUNTERPARTY_2\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"bare_name": "N_TRADE_AMOUNT", "code_snippet": "public final class MessageKey {", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_TRADE_AMOUNT", "label": "\"N_TRADE_AMOUNT\"", "line_number": 7, "literal": true, "md5_hash": "14f5ad1519e386ac57508d65a54a8d98", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_TRADE_AMOUNT\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 7\u003cbr\u003eMD5: 14f5ad1519e3...\u003cbr\u003e\u003cpre\u003epublic final class MessageKey {\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_TRADE_AMOUNT\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "N_TRADE_AMOUNT", "code_snippet": "String amount = (String) message.get(MessageKey.N_TRADE_AMOUNT);", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::const::com.bank.trade.service.TradeService::MessageKey.N_TRADE_AMOUNT", "label": "MessageKey.N_TRADE_AMOUNT", "line_number": 15, "md5_hash": "0c7074686f77f602fde627be2e9869bf", "qualifier": "MessageKey", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003eMessageKey.N_TRADE_AMOUNT\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 15\u003cbr\u003eMD5: 0c7074686f77...\u003cbr\u003e\u003cpre\u003eString amount = (String) message.get(MessageKey.N_TRADE_AMOUNT);\u003c/pre\u003e\u003cbr\u003equalifier: MessageKey\u003cbr\u003ebare_name: N_TRADE_AMOUNT\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"bare_name": "N_CURRENCY_CODE", "code_snippet": "public static final String N_COUNTERPARTY_2 = \"N_COUNTERPARTY_2\";", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_CURRENCY_CODE", "label": "\"N_CURRENCY_CODE\"", "line_number": 9, "literal": true, "md5_hash": "189f553d4bc278e500769df6a5ecb647", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_CURRENCY_CODE\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 9\u003cbr\u003eMD5: 189f553d4bc2...\u003cbr\u003e\u003cpre\u003epublic static final String N_COUNTERPARTY_2 = \"N_COUNTERPARTY_2\";\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_CURRENCY_CODE\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "N_CURRENCY_CODE", "code_snippet": "String currency = (String) message.get(MessageKey.N_CURRENCY_CODE);", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::const::com.bank.trade.service.TradeService::MessageKey.N_CURRENCY_CODE", "label": "MessageKey.N_CURRENCY_CODE", "line_number": 16, "md5_hash": "e36c2048d07076a00a492c7d7636d124", "qualifier": "MessageKey", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003eMessageKey.N_CURRENCY_CODE\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 16\u003cbr\u003eMD5: e36c2048d070...\u003cbr\u003e\u003cpre\u003eString currency = (String) message.get(MessageKey.N_CURRENCY_CODE);\u003c/pre\u003e\u003cbr\u003equalifier: MessageKey\u003cbr\u003ebare_name: N_CURRENCY_CODE\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"bare_name": "N_INSTRUMENT_ID", "code_snippet": "public static final String N_TRADE_AMOUNT = \"N_TRADE_AMOUNT\";", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_INSTRUMENT_ID", "label": "\"N_INSTRUMENT_ID\"", "line_number": 10, "literal": true, "md5_hash": "03288f3aa1a6f221d461f165cf806f92", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_INSTRUMENT_ID\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 10\u003cbr\u003eMD5: 03288f3aa1a6...\u003cbr\u003e\u003cpre\u003epublic static final String N_TRADE_AMOUNT = \"N_TRADE_AMOUNT\";\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_INSTRUMENT_ID\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "N_INSTRUMENT_ID", "code_snippet": "String instrument = (String) message.get(\"N_INSTRUMENT_ID\");", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.trade.service.TradeService::N_INSTRUMENT_ID", "label": "\"N_INSTRUMENT_ID\"", "line_number": 19, "literal": true, "md5_hash": "2ed411702479edb7a3936a81f0d23ca5", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_INSTRUMENT_ID\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 19\u003cbr\u003eMD5: 2ed411702479...\u003cbr\u003e\u003cpre\u003eString instrument = (String) message.get(\"N_INSTRUMENT_ID\");\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_INSTRUMENT_ID\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}, {"code_snippet": "TradeDTO trade = mapper.readValue(payload, TradeDTO.class);", "color": "#F5A623", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::dto::TradeDTO", "label": "DTO:TradeDTO", "line_number": 22, "md5_hash": "60dd3281776e45e36ca23ed4bed22f38", "repo": "app-trade", "shape": "hexagon", "size": 10, "title": "\u003cb\u003eDTO:TradeDTO\u003c/b\u003e\u003cbr\u003eType: DTO\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 22\u003cbr\u003eMD5: 60dd3281776e...\u003cbr\u003e\u003cpre\u003eTradeDTO trade = mapper.readValue(payload, TradeDTO.class);\u003c/pre\u003e\u003cbr\u003erepo: app-trade", "type": "DTO"}, {"code_snippet": "TradeDTO trade = mapper.readValue(payload, TradeDTO.class);", "color": "#7EC8E3", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::method::mapper::readValue", "label": "mapper.readValue()", "line_number": 22, "md5_hash": "60dd3281776e45e36ca23ed4bed22f38", "repo": "app-trade", "shape": "ellipse", "size": 10, "title": "\u003cb\u003emapper.readValue()\u003c/b\u003e\u003cbr\u003eType: JAVA_METHOD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 22\u003cbr\u003eMD5: 60dd3281776e...\u003cbr\u003e\u003cpre\u003eTradeDTO trade = mapper.readValue(payload, TradeDTO.class);\u003c/pre\u003e\u003cbr\u003erepo: app-trade", "type": "JAVA_METHOD"}, {"code_snippet": "tradeRepo.save(trade);", "color": "#7EC8E3", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::method::tradeRepo::save", "label": "tradeRepo.save()", "line_number": 29, "md5_hash": "57549269e59fa663a56e68e77c1fa492", "repo": "app-trade", "shape": "ellipse", "size": 10, "title": "\u003cb\u003etradeRepo.save()\u003c/b\u003e\u003cbr\u003eType: JAVA_METHOD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 29\u003cbr\u003eMD5: 57549269e59f...\u003cbr\u003e\u003cpre\u003etradeRepo.save(trade);\u003c/pre\u003e\u003cbr\u003erepo: app-trade", "type": "JAVA_METHOD"}, {"code_snippet": "trade.setEffectiveDate(source.getEffectiveDate());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::com.bank.trade.service.TradeService::EffectiveDate", "label": "EffectiveDate", "line_number": 25, "md5_hash": "84184f6948ef8f206b02463bfa896eeb", "owner": "com.bank.trade.service.TradeService", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eEffectiveDate\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 25\u003cbr\u003eMD5: 84184f6948ef...\u003cbr\u003e\u003cpre\u003etrade.setEffectiveDate(source.getEffectiveDate());\u003c/pre\u003e\u003cbr\u003eowner: com.bank.trade.service.TradeService\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "trade.setEffectiveDate(source.getEffectiveDate());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::trade::EffectiveDate", "label": "EffectiveDate", "line_number": 25, "md5_hash": "84184f6948ef8f206b02463bfa896eeb", "owner": "trade", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eEffectiveDate\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 25\u003cbr\u003eMD5: 84184f6948ef...\u003cbr\u003e\u003cpre\u003etrade.setEffectiveDate(source.getEffectiveDate());\u003c/pre\u003e\u003cbr\u003eowner: trade\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "trade.setCounterpartyName(source.getCounterpartyName());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::com.bank.trade.service.TradeService::CounterpartyName", "label": "CounterpartyName", "line_number": 26, "md5_hash": "e7e55a851214dfef266ee2e08563272e", "owner": "com.bank.trade.service.TradeService", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eCounterpartyName\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 26\u003cbr\u003eMD5: e7e55a851214...\u003cbr\u003e\u003cpre\u003etrade.setCounterpartyName(source.getCounterpartyName());\u003c/pre\u003e\u003cbr\u003eowner: com.bank.trade.service.TradeService\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "trade.setCounterpartyName(source.getCounterpartyName());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::trade::CounterpartyName", "label": "CounterpartyName", "line_number": 26, "md5_hash": "e7e55a851214dfef266ee2e08563272e", "owner": "trade", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eCounterpartyName\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 26\u003cbr\u003eMD5: e7e55a851214...\u003cbr\u003e\u003cpre\u003etrade.setCounterpartyName(source.getCounterpartyName());\u003c/pre\u003e\u003cbr\u003eowner: trade\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "trade.setTradeAmount(source.getTradeAmount());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::com.bank.trade.service.TradeService::TradeAmount", "label": "TradeAmount", "line_number": 27, "md5_hash": "ffed3e36abceebc605c43b7afec2a8e3", "owner": "com.bank.trade.service.TradeService", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eTradeAmount\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 27\u003cbr\u003eMD5: ffed3e36abce...\u003cbr\u003e\u003cpre\u003etrade.setTradeAmount(source.getTradeAmount());\u003c/pre\u003e\u003cbr\u003eowner: com.bank.trade.service.TradeService\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "trade.setTradeAmount(source.getTradeAmount());", "color": "#A8D8EA", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::field::trade::TradeAmount", "label": "TradeAmount", "line_number": 27, "md5_hash": "ffed3e36abceebc605c43b7afec2a8e3", "owner": "trade", "repo": "app-trade", "shape": "diamond", "size": 10, "title": "\u003cb\u003eTradeAmount\u003c/b\u003e\u003cbr\u003eType: JAVA_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 27\u003cbr\u003eMD5: ffed3e36abce...\u003cbr\u003e\u003cpre\u003etrade.setTradeAmount(source.getTradeAmount());\u003c/pre\u003e\u003cbr\u003eowner: trade\u003cbr\u003erepo: app-trade", "type": "JAVA_FIELD"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"effectiveDate\"/\u003e", "color": "#9B59B6", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::TradeOutput", "label": "XSLT:TradeOutput", "line_number": 8, "match": "TradeDTO", "md5_hash": "c2f4124f8860fb3cfa5ea038d744d5a4", "repo": "app-trade", "shape": "triangle", "size": 10, "title": "\u003cb\u003eXSLT:TradeOutput\u003c/b\u003e\u003cbr\u003eType: XSLT_TEMPLATE\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 8\u003cbr\u003eMD5: c2f4124f8860...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"effectiveDate\"/\u003e\u003c/pre\u003e\u003cbr\u003ematch: TradeDTO\u003cbr\u003erepo: app-trade", "type": "XSLT_TEMPLATE"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"effectiveDate\"/\u003e", "color": "#C39BD3", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::field::TradeOutput::effectiveDate", "label": "N_EFFECTIVE_DATE", "line_number": 8, "md5_hash": "c2f4124f8860fb3cfa5ea038d744d5a4", "output_element": "N_EFFECTIVE_DATE", "repo": "app-trade", "shape": "star", "size": 10, "title": "\u003cb\u003eN_EFFECTIVE_DATE\u003c/b\u003e\u003cbr\u003eType: XSLT_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 8\u003cbr\u003eMD5: c2f4124f8860...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"effectiveDate\"/\u003e\u003c/pre\u003e\u003cbr\u003expath: effectiveDate\u003cbr\u003eoutput_element: N_EFFECTIVE_DATE\u003cbr\u003erepo: app-trade", "type": "XSLT_FIELD", "xpath": "effectiveDate"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"counterpartyName\"/\u003e", "color": "#C39BD3", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::field::TradeOutput::counterpartyName", "label": "N_COUNTERPARTY_2", "line_number": 11, "md5_hash": "c5fcd014d67ba92f2056b43a0657cb07", "output_element": "N_COUNTERPARTY_2", "repo": "app-trade", "shape": "star", "size": 10, "title": "\u003cb\u003eN_COUNTERPARTY_2\u003c/b\u003e\u003cbr\u003eType: XSLT_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 11\u003cbr\u003eMD5: c5fcd014d67b...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"counterpartyName\"/\u003e\u003c/pre\u003e\u003cbr\u003expath: counterpartyName\u003cbr\u003eoutput_element: N_COUNTERPARTY_2\u003cbr\u003erepo: app-trade", "type": "XSLT_FIELD", "xpath": "counterpartyName"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"tradeAmount\"/\u003e", "color": "#C39BD3", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::field::TradeOutput::tradeAmount", "label": "N_TRADE_AMOUNT", "line_number": 14, "md5_hash": "17ec6b9a45505bf3397d13f2bd1b56ef", "output_element": "N_TRADE_AMOUNT", "repo": "app-trade", "shape": "star", "size": 10, "title": "\u003cb\u003eN_TRADE_AMOUNT\u003c/b\u003e\u003cbr\u003eType: XSLT_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 14\u003cbr\u003eMD5: 17ec6b9a4550...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"tradeAmount\"/\u003e\u003c/pre\u003e\u003cbr\u003expath: tradeAmount\u003cbr\u003eoutput_element: N_TRADE_AMOUNT\u003cbr\u003erepo: app-trade", "type": "XSLT_FIELD", "xpath": "tradeAmount"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"currencyCode\"/\u003e", "color": "#C39BD3", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::field::TradeOutput::currencyCode", "label": "N_CURRENCY_CODE", "line_number": 17, "md5_hash": "210e322a5f2d097f3788d233257c5e76", "output_element": "N_CURRENCY_CODE", "repo": "app-trade", "shape": "star", "size": 10, "title": "\u003cb\u003eN_CURRENCY_CODE\u003c/b\u003e\u003cbr\u003eType: XSLT_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 17\u003cbr\u003eMD5: 210e322a5f2d...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"currencyCode\"/\u003e\u003c/pre\u003e\u003cbr\u003expath: currencyCode\u003cbr\u003eoutput_element: N_CURRENCY_CODE\u003cbr\u003erepo: app-trade", "type": "XSLT_FIELD", "xpath": "currencyCode"}, {"code_snippet": "\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"instrumentId\"/\u003e", "color": "#C39BD3", "file_path": "tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl", "font": {"color": "#e0e0e0"}, "id": "xslt::field::TradeOutput::instrumentId", "label": "N_INSTRUMENT_ID", "line_number": 20, "md5_hash": "e92a31fb94feab8ad8828d68514d9664", "output_element": "N_INSTRUMENT_ID", "repo": "app-trade", "shape": "star", "size": 10, "title": "\u003cb\u003eN_INSTRUMENT_ID\u003c/b\u003e\u003cbr\u003eType: XSLT_FIELD\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/xslt/trade_output.xsl\u003cbr\u003eLine: 20\u003cbr\u003eMD5: e92a31fb94fe...\u003cbr\u003e\u003cpre\u003e\u003cxsl:value-of xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" select=\"instrumentId\"/\u003e\u003c/pre\u003e\u003cbr\u003expath: instrumentId\u003cbr\u003eoutput_element: N_INSTRUMENT_ID\u003cbr\u003erepo: app-trade", "type": "XSLT_FIELD", "xpath": "instrumentId"}, {"bare_name": "EFFECTIVE_DATE", "code_snippet": "public final class FieldNames {", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/FieldNames.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.FieldNames::EFFECTIVE_DATE", "label": "\"EFFECTIVE_DATE\"", "line_number": 6, "literal": true, "md5_hash": "962fcd258ddfa320184bbab3344d10a6", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"EFFECTIVE_DATE\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/FieldNames.java\u003cbr\u003eLine: 6\u003cbr\u003eMD5: 962fcd258ddf...\u003cbr\u003e\u003cpre\u003epublic final class FieldNames {\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: EFFECTIVE_DATE\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "COUNTERPARTY_NAME", "code_snippet": "*/", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/FieldNames.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.FieldNames::COUNTERPARTY_NAME", "label": "\"COUNTERPARTY_NAME\"", "line_number": 5, "literal": true, "md5_hash": "c4c9bdd47ee05028cb84873da0ebf2b5", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"COUNTERPARTY_NAME\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/FieldNames.java\u003cbr\u003eLine: 5\u003cbr\u003eMD5: c4c9bdd47ee0...\u003cbr\u003e\u003cpre\u003e*/\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: COUNTERPARTY_NAME\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"code_snippet": "com.bank.common.MessageKey", "color": "#4A90D9", "file_path": "", "font": {"color": "#e0e0e0"}, "id": "java::class::com.bank.common.MessageKey", "label": "MessageKey", "line_number": 0, "md5_hash": "124c86e0b9a31f76310be94935303278", "repo": "lib-common", "shape": "box", "size": 10, "title": "\u003cb\u003eMessageKey\u003c/b\u003e\u003cbr\u003eType: JAVA_CLASS\u003cbr\u003eFile: \u003cbr\u003eLine: 0\u003cbr\u003eMD5: 124c86e0b9a3...\u003cbr\u003e\u003cpre\u003ecom.bank.common.MessageKey\u003c/pre\u003e\u003cbr\u003erepo: lib-common", "type": "JAVA_CLASS"}, {"code_snippet": "com.bank.common.FieldNames", "color": "#4A90D9", "file_path": "", "font": {"color": "#e0e0e0"}, "id": "java::class::com.bank.common.FieldNames", "label": "FieldNames", "line_number": 0, "md5_hash": "7e5006dca466cd2d5d6e1a3558be039e", "repo": "lib-common", "shape": "box", "size": 10, "title": "\u003cb\u003eFieldNames\u003c/b\u003e\u003cbr\u003eType: JAVA_CLASS\u003cbr\u003eFile: \u003cbr\u003eLine: 0\u003cbr\u003eMD5: 7e5006dca466...\u003cbr\u003e\u003cpre\u003ecom.bank.common.FieldNames\u003c/pre\u003e\u003cbr\u003erepo: lib-common", "type": "JAVA_CLASS"}, {"bare_name": "N_SETTLEMENT_DATE", "code_snippet": "public static final String N_EFFECTIVE_DATE = \"N_EFFECTIVE_DATE\";", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/MessageKey.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.MessageKey::N_SETTLEMENT_DATE", "label": "\"N_SETTLEMENT_DATE\"", "line_number": 8, "literal": true, "md5_hash": "923d6e786d101a77b1f0b42e1262d3f8", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"N_SETTLEMENT_DATE\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/MessageKey.java\u003cbr\u003eLine: 8\u003cbr\u003eMD5: 923d6e786d10...\u003cbr\u003e\u003cpre\u003epublic static final String N_EFFECTIVE_DATE = \"N_EFFECTIVE_DATE\";\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: N_SETTLEMENT_DATE\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": "#3498DB", "from": "java::class::com.bank.trade.service.TradeService", "label": "CALLS", "title": "CALLS", "to": "java::method::com.bank.trade.service.TradeService::processMessage", "type": "CALLS", "width": 1}, {"arrows": "to", "bare_name": "trade_status", "color": "#E91E63", "from": "java::literal::com.bank.common.FieldNames::TRADE_STATUS", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "bare_name": "n_effective_date", "color": "#E91E63", "from": "java::literal::com.bank.common.MessageKey::N_EFFECTIVE_DATE", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_EFFECTIVE_DATE", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "bare_name": "n_counterparty_2", "color": "#E91E63", "from": "java::literal::com.bank.common.MessageKey::N_COUNTERPARTY_2", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_COUNTERPARTY_2", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "bare_name": "n_trade_amount", "color": "#E91E63", "from": "java::literal::com.bank.common.MessageKey::N_TRADE_AMOUNT", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_TRADE_AMOUNT", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "bare_name": "n_currency_code", "color": "#E91E63", "from": "java::literal::com.bank.common.MessageKey::N_CURRENCY_CODE", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_CURRENCY_CODE", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "bare_name": "n_instrument_id", "color": "#E91E63", "from": "java::literal::com.bank.common.MessageKey::N_INSTRUMENT_ID", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::literal::com.bank.trade.service.TradeService::N_INSTRUMENT_ID", "type": "CROSS_REPO", "width": 1}, {"arrows": "to", "color": "#F39C12", "from": "java::method::com.bank.trade.service.TradeService::processMessage", "label": "UNMARSHALS_TO", "title": "UNMARSHALS_TO", "to": "java::dto::TradeDTO", "type": "UNMARSHALS_TO", "width": 1}, {"arrows": "to", "color": "#3498DB", "from": "java::method::com.bank.trade.service.TradeService::processMessage", "label": "CALLS", "title": "CALLS", "to": "java::method::mapper::readValue", "type": "CALLS", "width": 1}, {"arrows": "to", "color": "#3498DB", "from": "java::method::com.bank.trade.service.TradeService::processMessage", "label": "CALLS", "title": "CALLS", "to": "java::method::tradeRepo::save", "type": "CALLS", "width": 1}, {"arrows": "to", "color": "#E74C3C", "from": "java::field::com.bank.trade.service.TradeService::EffectiveDate", "label": "DERIVED_FROM", "title": "DERIVED_FROM", "to": "java::field::trade::EffectiveDate", "type": "DERIVED_FROM", "width": 1}, {"arrows": "to", "color": "#E74C3C", "from": "java::field::com.bank.trade.service.TradeService::CounterpartyName", "label": "DERIVED_FROM", "title": "DERIVED_FROM", "to": "java::field::trade::CounterpartyName", "type": "DERIVED_FROM", "width": 1}, {"arrows": "to", "color": "#E74C3C", "from": "java::field::com.bank.trade.service.TradeService::TradeAmount", "label": "DERIVED_FROM", "title": "DERIVED_FROM", "to": "java::field::trade::TradeAmount", "type": "DERIVED_FROM", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "label": "TRANSFORMS", "title": "TRANSFORMS", "to": "xslt::field::TradeOutput::effectiveDate", "type": "TRANSFORMS", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "label": "TRANSFORMS", "title": "TRANSFORMS", "to": "xslt::field::TradeOutput::counterpartyName", "type": "TRANSFORMS", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "label": "TRANSFORMS", "title": "TRANSFORMS", "to": "xslt::field::TradeOutput::tradeAmount", "type": "TRANSFORMS", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "label": "TRANSFORMS", "title": "TRANSFORMS", "to": "xslt::field::TradeOutput::currencyCode", "type": "TRANSFORMS", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "label": "TRANSFORMS", "title": "TRANSFORMS", "to": "xslt::field::TradeOutput::instrumentId", "type": "TRANSFORMS", "width": 1}, {"arrows": "to", "color": "#2ECC71", "from": "xslt::TradeOutput", "java_repo": "app-trade", "label": "TRANSFORMS", "match_type": "dto_name", "title": "TRANSFORMS", "to": "java::dto::TradeDTO", "type": "TRANSFORMS", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::effectiveDate", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "effective_date", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.FieldNames::EFFECTIVE_DATE", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::effectiveDate", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "effective_date", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.MessageKey::N_EFFECTIVE_DATE", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::effectiveDate", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "effective_date", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_EFFECTIVE_DATE", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::effectiveDate", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "effective_date", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::field::com.bank.trade.service.TradeService::EffectiveDate", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::counterpartyName", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "counterpartyname", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.FieldNames::COUNTERPARTY_NAME", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::counterpartyName", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "counterpartyname", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::field::com.bank.trade.service.TradeService::CounterpartyName", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::tradeAmount", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "tradeamount", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.MessageKey::N_TRADE_AMOUNT", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::tradeAmount", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "tradeamount", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_TRADE_AMOUNT", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::tradeAmount", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "tradeamount", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::field::com.bank.trade.service.TradeService::TradeAmount", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::currencyCode", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "currency_code", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.MessageKey::N_CURRENCY_CODE", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::currencyCode", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "currency_code", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::const::com.bank.trade.service.TradeService::MessageKey.N_CURRENCY_CODE", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E91E63", "from": "xslt::field::TradeOutput::instrumentId", "java_repo": "lib-common", "label": "CROSS_REPO", "match_key": "instrumentid", "match_type": "field_name", "title": "CROSS_REPO", "to": "java::literal::com.bank.common.MessageKey::N_INSTRUMENT_ID", "type": "CROSS_REPO", "width": 1, "xslt_repo": "app-trade"}, {"arrows": "to", "color": "#E74C3C", "from": "xslt::field::TradeOutput::instrumentId", "java_repo": "app-trade", "label": "DERIVED_FROM", "match_key": "instrumentid", "match_type": "field_name", "title": "DERIVED_FROM", "to": "java::literal::com.bank.trade.service.TradeService::N_INSTRUMENT_ID", "type": "DERIVED_FROM", "width": 1, "xslt_repo": "app-trade"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"barnesHut": {"gravitationalConstant": -8000, "centralGravity": 0.3, "springLength": 150, "springConstant": 0.04, "damping": 0.09}, "minVelocity": 0.75}, "interaction": {"hover": true, "tooltipDelay": 200, "navigationButtons": true, "keyboard": true}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "smooth": {"type": "cubicBezier", "forceDirection": "horizontal"}, "font": {"size": 10, "align": "middle"}}, "nodes": {"font": {"size": 14}, "borderWidth": 2}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    
+<style>
+  #synapse-panel {
+    position: fixed; top: 10px; right: 10px; z-index: 9999;
+    background: rgba(26, 26, 46, 0.95); border: 1px solid #4A90D9;
+    border-radius: 8px; padding: 16px; width: 280px;
+    font-family: 'Segoe UI', sans-serif; color: #e0e0e0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    max-height: 90vh; overflow-y: auto;
+  }
+  #synapse-panel h3 { margin: 0 0 12px; color: #7EC8E3; font-size: 14px; }
+  #synapse-panel input[type="text"] {
+    width: 100%; padding: 8px; border: 1px solid #444;
+    border-radius: 4px; background: #16213e; color: #e0e0e0;
+    font-size: 13px; box-sizing: border-box; margin-bottom: 10px;
+  }
+  #synapse-panel label {
+    display: inline-block; margin: 2px 8px 2px 0; font-size: 12px; cursor: pointer;
+  }
+  #synapse-panel .color-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 4px; vertical-align: middle;
+  }
+  #synapse-panel button {
+    margin-top: 10px; padding: 6px 12px; border: none;
+    border-radius: 4px; cursor: pointer; font-size: 12px;
+    background: #4A90D9; color: white; margin-right: 6px;
+  }
+  #synapse-panel button:hover { background: #3a7bc8; }
+  #synapse-panel button.secondary { background: #555; }
+  #synapse-panel button.secondary:hover { background: #666; }
+  #synapse-panel .section { margin-top: 10px; padding-top: 8px; border-top: 1px solid #333; }
+  #synapse-panel .stats { font-size: 11px; color: #888; margin-top: 8px; }
+  #focus-badge {
+    display: none; background: #E74C3C; color: white; padding: 2px 8px;
+    border-radius: 10px; font-size: 11px; margin-left: 8px;
+  }
+</style>
+
+<div id="synapse-panel">
+  
+  <h3>Synapse Trace — Full Lineage <span id="focus-badge">FOCUS MODE</span></h3>
+  <input type="text" id="search-input" placeholder="Search nodes..." />
+  <div class="section">
+    <b style="font-size:12px">Node Types</b><br>
+    <label><input type="checkbox" class="type-filter" value="JAVA_CLASS" checked>
+      <span class="color-dot" style="background:#4A90D9"></span>Java Class</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_METHOD" checked>
+      <span class="color-dot" style="background:#7EC8E3"></span>Method</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_FIELD" checked>
+      <span class="color-dot" style="background:#A8D8EA"></span>Field</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_CONSTANT" checked>
+      <span class="color-dot" style="background:#E67E22"></span>Constant</label>
+    <label><input type="checkbox" class="type-filter" value="DTO" checked>
+      <span class="color-dot" style="background:#F5A623"></span>DTO</label>
+    <label><input type="checkbox" class="type-filter" value="XSLT_TEMPLATE" checked>
+      <span class="color-dot" style="background:#9B59B6"></span>XSLT Template</label>
+    <label><input type="checkbox" class="type-filter" value="XSLT_FIELD" checked>
+      <span class="color-dot" style="background:#C39BD3"></span>XSLT Field</label>
+  </div>
+  <div class="section">
+    <b style="font-size:12px">Edge Types</b><br>
+    <label><input type="checkbox" class="edge-filter" value="CALLS" checked>
+      <span class="color-dot" style="background:#3498DB"></span>Calls</label>
+    <label><input type="checkbox" class="edge-filter" value="DERIVED_FROM" checked>
+      <span class="color-dot" style="background:#E74C3C"></span>Derived From</label>
+    <label><input type="checkbox" class="edge-filter" value="TRANSFORMS" checked>
+      <span class="color-dot" style="background:#2ECC71"></span>Transforms</label>
+    <label><input type="checkbox" class="edge-filter" value="UNMARSHALS_TO" checked>
+      <span class="color-dot" style="background:#F39C12"></span>Unmarshals To</label>
+    <label><input type="checkbox" class="edge-filter" value="CROSS_REPO" checked>
+      <span class="color-dot" style="background:#E91E63"></span>Cross-Repo</label>
+  </div>
+  <div>
+    <button id="reset-btn" class="secondary">Reset View</button>
+    <button id="fit-btn" class="secondary">Fit All</button>
+  </div>
+  <div class="stats" id="stats-line">Nodes: 0 | Edges: 0</div>
+</div>
+
+<script>
+(function() {
+  var allNodes = null;
+  var allEdges = null;
+  var focusMode = false;
+  var originalColors = {};
+  var originalEdgeColors = {};
+
+  var waitForNetwork = setInterval(function() {
+    if (typeof network !== 'undefined' && network.body && network.body.data) {
+      clearInterval(waitForNetwork);
+      init();
+    }
+  }, 200);
+
+  function init() {
+    allNodes = network.body.data.nodes;
+    allEdges = network.body.data.edges;
+
+    allNodes.forEach(function(n) { originalColors[n.id] = n.color; });
+    allEdges.forEach(function(e) { originalEdgeColors[e.id] = e.color; });
+
+    updateStats();
+
+    document.getElementById('search-input').addEventListener('keyup', function() {
+      var query = this.value.toLowerCase().trim();
+      if (!query) { resetHighlight(); return; }
+      var updates = [];
+      allNodes.forEach(function(n) {
+        var match = (n.label || '').toLowerCase().includes(query) ||
+                    (n.id || '').toLowerCase().includes(query);
+        updates.push({id: n.id, opacity: match ? 1.0 : 0.15,
+                       color: match ? originalColors[n.id] : '#444'});
+      });
+      allNodes.update(updates);
+    });
+
+    document.querySelectorAll('.type-filter').forEach(function(cb) {
+      cb.addEventListener('change', applyFilters);
+    });
+    document.querySelectorAll('.edge-filter').forEach(function(cb) {
+      cb.addEventListener('change', applyFilters);
+    });
+
+    network.on('doubleClick', function(params) {
+      if (params.nodes.length === 0) { exitFocus(); return; }
+      enterFocus(params.nodes[0]);
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', function() {
+      exitFocus();
+      resetHighlight();
+      document.getElementById('search-input').value = '';
+      document.querySelectorAll('.type-filter, .edge-filter').forEach(function(cb) {
+        cb.checked = true;
+      });
+      applyFilters();
+    });
+
+    document.getElementById('fit-btn').addEventListener('click', function() {
+      network.fit({animation: true});
+    });
+  }
+
+  function applyFilters() {
+    var activeTypes = [];
+    document.querySelectorAll('.type-filter:checked').forEach(function(cb) {
+      activeTypes.push(cb.value);
+    });
+    var activeEdgeTypes = [];
+    document.querySelectorAll('.edge-filter:checked').forEach(function(cb) {
+      activeEdgeTypes.push(cb.value);
+    });
+    var nodeUpdates = [];
+    allNodes.forEach(function(n) {
+      nodeUpdates.push({id: n.id, hidden: !activeTypes.includes(n.type)});
+    });
+    allNodes.update(nodeUpdates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) {
+      edgeUpdates.push({id: e.id, hidden: !activeEdgeTypes.includes(e.type)});
+    });
+    allEdges.update(edgeUpdates);
+    updateStats();
+  }
+
+  function enterFocus(nodeId) {
+    focusMode = true;
+    document.getElementById('focus-badge').style.display = 'inline';
+    var connected = network.getConnectedNodes(nodeId);
+    connected.push(nodeId);
+    var connSet = new Set(connected);
+    var updates = [];
+    allNodes.forEach(function(n) { updates.push({id: n.id, hidden: !connSet.has(n.id)}); });
+    allNodes.update(updates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) {
+      edgeUpdates.push({id: e.id, hidden: !(connSet.has(e.from) && connSet.has(e.to))});
+    });
+    allEdges.update(edgeUpdates);
+    network.focus(nodeId, {scale: 1.2, animation: true});
+    updateStats();
+  }
+
+  function exitFocus() {
+    focusMode = false;
+    document.getElementById('focus-badge').style.display = 'none';
+    var updates = [];
+    allNodes.forEach(function(n) { updates.push({id: n.id, hidden: false}); });
+    allNodes.update(updates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) { edgeUpdates.push({id: e.id, hidden: false}); });
+    allEdges.update(edgeUpdates);
+    updateStats();
+  }
+
+  function resetHighlight() {
+    var updates = [];
+    allNodes.forEach(function(n) {
+      updates.push({id: n.id, opacity: 1.0, color: originalColors[n.id]});
+    });
+    allNodes.update(updates);
+  }
+
+  function updateStats() {
+    var vn = 0, ve = 0;
+    allNodes.forEach(function(n) { if (!n.hidden) vn++; });
+    allEdges.forEach(function(e) { if (!e.hidden) ve++; });
+    document.getElementById('stats-line').textContent =
+      'Nodes: ' + vn + ' | Edges: ' + ve;
+  }
+})();
+</script>
+
+</body>
+</html>

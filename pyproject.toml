@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synapse-trace"
+version = "0.1.0"
+description = "Data lineage tracer for Java/XSLT codebases with multi-provider graph storage"
+requires-python = ">=3.10"
+dependencies = [
+    "networkx>=3.1",
+    "pyvis>=0.3.2",
+    "lxml>=4.9",
+]
+
+[project.optional-dependencies]
+neo4j = ["neo4j>=5.0"]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[project.scripts]
+synapse-trace = "orchestrator.parser:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

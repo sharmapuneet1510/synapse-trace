@@ -1,0 +1,16 @@
+{
+  "repos": [
+    {
+      "name": "lib-common",
+      "path": "tests/fixtures/multi-repo/lib-common",
+      "java_dirs": ["java"],
+      "xslt_dirs": []
+    },
+    {
+      "name": "app-trade",
+      "path": "tests/fixtures/multi-repo/app-trade",
+      "java_dirs": ["java"],
+      "xslt_dirs": ["xslt"]
+    }
+  ]
+}

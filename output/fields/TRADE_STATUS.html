@@ -1,0 +1,535 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 900px;
+                 background-color: #1a1a2e;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"bare_name": "TRADE_STATUS", "code_snippet": "public static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/lib-common/java/FieldNames.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.common.FieldNames::TRADE_STATUS", "label": "\"TRADE_STATUS\"", "line_number": 7, "literal": true, "md5_hash": "35c0080ab248e4fb16122be7836ce2b8", "repo": "lib-common", "shape": "square", "size": 10, "title": "\u003cb\u003e\"TRADE_STATUS\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/lib-common/java/FieldNames.java\u003cbr\u003eLine: 7\u003cbr\u003eMD5: 35c0080ab248...\u003cbr\u003e\u003cpre\u003epublic static final String COUNTERPARTY_NAME = \"COUNTERPARTY_NAME\";\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: TRADE_STATUS\u003cbr\u003erepo: lib-common", "type": "JAVA_CONSTANT"}, {"bare_name": "TRADE_STATUS", "code_snippet": "String status = (String) message.get(\"TRADE_STATUS\");", "color": "#E67E22", "file_path": "tests/fixtures/multi-repo/app-trade/java/TradeService.java", "font": {"color": "#e0e0e0"}, "id": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS", "label": "\"TRADE_STATUS\"", "line_number": 20, "literal": true, "md5_hash": "a9394861d8560682b0241acfdc269266", "repo": "app-trade", "shape": "square", "size": 10, "title": "\u003cb\u003e\"TRADE_STATUS\"\u003c/b\u003e\u003cbr\u003eType: JAVA_CONSTANT\u003cbr\u003eFile: tests/fixtures/multi-repo/app-trade/java/TradeService.java\u003cbr\u003eLine: 20\u003cbr\u003eMD5: a9394861d856...\u003cbr\u003e\u003cpre\u003eString status = (String) message.get(\"TRADE_STATUS\");\u003c/pre\u003e\u003cbr\u003eliteral: True\u003cbr\u003ebare_name: TRADE_STATUS\u003cbr\u003erepo: app-trade", "type": "JAVA_CONSTANT"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "bare_name": "trade_status", "color": "#E91E63", "from": "java::literal::com.bank.common.FieldNames::TRADE_STATUS", "label": "CROSS_REPO", "match_type": "cross_repo_constant", "repo_a": "lib-common", "repo_b": "app-trade", "title": "CROSS_REPO", "to": "java::literal::com.bank.trade.service.TradeService::TRADE_STATUS", "type": "CROSS_REPO", "width": 1}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"barnesHut": {"gravitationalConstant": -8000, "centralGravity": 0.3, "springLength": 150, "springConstant": 0.04, "damping": 0.09}, "minVelocity": 0.75}, "interaction": {"hover": true, "tooltipDelay": 200, "navigationButtons": true, "keyboard": true}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "smooth": {"type": "cubicBezier", "forceDirection": "horizontal"}, "font": {"size": 10, "align": "middle"}}, "nodes": {"font": {"size": 14}, "borderWidth": 2}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    
+<style>
+  #synapse-panel {
+    position: fixed; top: 10px; right: 10px; z-index: 9999;
+    background: rgba(26, 26, 46, 0.95); border: 1px solid #4A90D9;
+    border-radius: 8px; padding: 16px; width: 280px;
+    font-family: 'Segoe UI', sans-serif; color: #e0e0e0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    max-height: 90vh; overflow-y: auto;
+  }
+  #synapse-panel h3 { margin: 0 0 12px; color: #7EC8E3; font-size: 14px; }
+  #synapse-panel input[type="text"] {
+    width: 100%; padding: 8px; border: 1px solid #444;
+    border-radius: 4px; background: #16213e; color: #e0e0e0;
+    font-size: 13px; box-sizing: border-box; margin-bottom: 10px;
+  }
+  #synapse-panel label {
+    display: inline-block; margin: 2px 8px 2px 0; font-size: 12px; cursor: pointer;
+  }
+  #synapse-panel .color-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 4px; vertical-align: middle;
+  }
+  #synapse-panel button {
+    margin-top: 10px; padding: 6px 12px; border: none;
+    border-radius: 4px; cursor: pointer; font-size: 12px;
+    background: #4A90D9; color: white; margin-right: 6px;
+  }
+  #synapse-panel button:hover { background: #3a7bc8; }
+  #synapse-panel button.secondary { background: #555; }
+  #synapse-panel button.secondary:hover { background: #666; }
+  #synapse-panel .section { margin-top: 10px; padding-top: 8px; border-top: 1px solid #333; }
+  #synapse-panel .stats { font-size: 11px; color: #888; margin-top: 8px; }
+  #focus-badge {
+    display: none; background: #E74C3C; color: white; padding: 2px 8px;
+    border-radius: 10px; font-size: 11px; margin-left: 8px;
+  }
+</style>
+
+<div id="synapse-panel">
+  <div style="margin-bottom:10px"><a href="index.html" style="color:#7EC8E3;text-decoration:none;font-size:12px">&larr; Back to Field Index</a> &nbsp;|&nbsp; <a href="../lineage_graph.html" style="color:#7EC8E3;text-decoration:none;font-size:12px">Full Graph</a></div>
+  <h3>Field Lineage — TRADE_STATUS <span id="focus-badge">FOCUS MODE</span></h3>
+  <input type="text" id="search-input" placeholder="Search nodes..." />
+  <div class="section">
+    <b style="font-size:12px">Node Types</b><br>
+    <label><input type="checkbox" class="type-filter" value="JAVA_CLASS" checked>
+      <span class="color-dot" style="background:#4A90D9"></span>Java Class</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_METHOD" checked>
+      <span class="color-dot" style="background:#7EC8E3"></span>Method</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_FIELD" checked>
+      <span class="color-dot" style="background:#A8D8EA"></span>Field</label>
+    <label><input type="checkbox" class="type-filter" value="JAVA_CONSTANT" checked>
+      <span class="color-dot" style="background:#E67E22"></span>Constant</label>
+    <label><input type="checkbox" class="type-filter" value="DTO" checked>
+      <span class="color-dot" style="background:#F5A623"></span>DTO</label>
+    <label><input type="checkbox" class="type-filter" value="XSLT_TEMPLATE" checked>
+      <span class="color-dot" style="background:#9B59B6"></span>XSLT Template</label>
+    <label><input type="checkbox" class="type-filter" value="XSLT_FIELD" checked>
+      <span class="color-dot" style="background:#C39BD3"></span>XSLT Field</label>
+  </div>
+  <div class="section">
+    <b style="font-size:12px">Edge Types</b><br>
+    <label><input type="checkbox" class="edge-filter" value="CALLS" checked>
+      <span class="color-dot" style="background:#3498DB"></span>Calls</label>
+    <label><input type="checkbox" class="edge-filter" value="DERIVED_FROM" checked>
+      <span class="color-dot" style="background:#E74C3C"></span>Derived From</label>
+    <label><input type="checkbox" class="edge-filter" value="TRANSFORMS" checked>
+      <span class="color-dot" style="background:#2ECC71"></span>Transforms</label>
+    <label><input type="checkbox" class="edge-filter" value="UNMARSHALS_TO" checked>
+      <span class="color-dot" style="background:#F39C12"></span>Unmarshals To</label>
+    <label><input type="checkbox" class="edge-filter" value="CROSS_REPO" checked>
+      <span class="color-dot" style="background:#E91E63"></span>Cross-Repo</label>
+  </div>
+  <div>
+    <button id="reset-btn" class="secondary">Reset View</button>
+    <button id="fit-btn" class="secondary">Fit All</button>
+  </div>
+  <div class="stats" id="stats-line">Nodes: 0 | Edges: 0</div>
+</div>
+
+<script>
+(function() {
+  var allNodes = null;
+  var allEdges = null;
+  var focusMode = false;
+  var originalColors = {};
+  var originalEdgeColors = {};
+
+  var waitForNetwork = setInterval(function() {
+    if (typeof network !== 'undefined' && network.body && network.body.data) {
+      clearInterval(waitForNetwork);
+      init();
+    }
+  }, 200);
+
+  function init() {
+    allNodes = network.body.data.nodes;
+    allEdges = network.body.data.edges;
+
+    allNodes.forEach(function(n) { originalColors[n.id] = n.color; });
+    allEdges.forEach(function(e) { originalEdgeColors[e.id] = e.color; });
+
+    updateStats();
+
+    document.getElementById('search-input').addEventListener('keyup', function() {
+      var query = this.value.toLowerCase().trim();
+      if (!query) { resetHighlight(); return; }
+      var updates = [];
+      allNodes.forEach(function(n) {
+        var match = (n.label || '').toLowerCase().includes(query) ||
+                    (n.id || '').toLowerCase().includes(query);
+        updates.push({id: n.id, opacity: match ? 1.0 : 0.15,
+                       color: match ? originalColors[n.id] : '#444'});
+      });
+      allNodes.update(updates);
+    });
+
+    document.querySelectorAll('.type-filter').forEach(function(cb) {
+      cb.addEventListener('change', applyFilters);
+    });
+    document.querySelectorAll('.edge-filter').forEach(function(cb) {
+      cb.addEventListener('change', applyFilters);
+    });
+
+    network.on('doubleClick', function(params) {
+      if (params.nodes.length === 0) { exitFocus(); return; }
+      enterFocus(params.nodes[0]);
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', function() {
+      exitFocus();
+      resetHighlight();
+      document.getElementById('search-input').value = '';
+      document.querySelectorAll('.type-filter, .edge-filter').forEach(function(cb) {
+        cb.checked = true;
+      });
+      applyFilters();
+    });
+
+    document.getElementById('fit-btn').addEventListener('click', function() {
+      network.fit({animation: true});
+    });
+  }
+
+  function applyFilters() {
+    var activeTypes = [];
+    document.querySelectorAll('.type-filter:checked').forEach(function(cb) {
+      activeTypes.push(cb.value);
+    });
+    var activeEdgeTypes = [];
+    document.querySelectorAll('.edge-filter:checked').forEach(function(cb) {
+      activeEdgeTypes.push(cb.value);
+    });
+    var nodeUpdates = [];
+    allNodes.forEach(function(n) {
+      nodeUpdates.push({id: n.id, hidden: !activeTypes.includes(n.type)});
+    });
+    allNodes.update(nodeUpdates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) {
+      edgeUpdates.push({id: e.id, hidden: !activeEdgeTypes.includes(e.type)});
+    });
+    allEdges.update(edgeUpdates);
+    updateStats();
+  }
+
+  function enterFocus(nodeId) {
+    focusMode = true;
+    document.getElementById('focus-badge').style.display = 'inline';
+    var connected = network.getConnectedNodes(nodeId);
+    connected.push(nodeId);
+    var connSet = new Set(connected);
+    var updates = [];
+    allNodes.forEach(function(n) { updates.push({id: n.id, hidden: !connSet.has(n.id)}); });
+    allNodes.update(updates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) {
+      edgeUpdates.push({id: e.id, hidden: !(connSet.has(e.from) && connSet.has(e.to))});
+    });
+    allEdges.update(edgeUpdates);
+    network.focus(nodeId, {scale: 1.2, animation: true});
+    updateStats();
+  }
+
+  function exitFocus() {
+    focusMode = false;
+    document.getElementById('focus-badge').style.display = 'none';
+    var updates = [];
+    allNodes.forEach(function(n) { updates.push({id: n.id, hidden: false}); });
+    allNodes.update(updates);
+    var edgeUpdates = [];
+    allEdges.forEach(function(e) { edgeUpdates.push({id: e.id, hidden: false}); });
+    allEdges.update(edgeUpdates);
+    updateStats();
+  }
+
+  function resetHighlight() {
+    var updates = [];
+    allNodes.forEach(function(n) {
+      updates.push({id: n.id, opacity: 1.0, color: originalColors[n.id]});
+    });
+    allNodes.update(updates);
+  }
+
+  function updateStats() {
+    var vn = 0, ve = 0;
+    allNodes.forEach(function(n) { if (!n.hidden) vn++; });
+    allEdges.forEach(function(e) { if (!e.hidden) ve++; });
+    document.getElementById('stats-line').textContent =
+      'Nodes: ' + vn + ' | Edges: ' + ve;
+  }
+})();
+</script>
+
+</body>
+</html>
