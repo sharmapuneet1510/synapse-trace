@@ -26,6 +26,7 @@ NODE_COLORS: dict[NodeType, str] = {
     NodeType.JAVA_FIELD: "#A8D8EA",
     NodeType.JAVA_CONSTANT: "#E67E22",
     NodeType.DTO: "#F5A623",
+    NodeType.XSLT_FILE: "#8E44AD",
     NodeType.XSLT_TEMPLATE: "#9B59B6",
     NodeType.XSLT_FIELD: "#C39BD3",
 }
@@ -36,6 +37,7 @@ EDGE_COLORS: dict[EdgeType, str] = {
     EdgeType.TRANSFORMS: "#2ECC71",
     EdgeType.UNMARSHALS_TO: "#F39C12",
     EdgeType.CROSS_REPO: "#E91E63",
+    EdgeType.LOADS_XSLT: "#00BCD4",
 }
 
 NODE_SHAPES: dict[NodeType, str] = {
@@ -44,6 +46,7 @@ NODE_SHAPES: dict[NodeType, str] = {
     NodeType.JAVA_FIELD: "diamond",
     NodeType.JAVA_CONSTANT: "square",
     NodeType.DTO: "hexagon",
+    NodeType.XSLT_FILE: "database",
     NodeType.XSLT_TEMPLATE: "triangle",
     NodeType.XSLT_FIELD: "star",
 }
@@ -344,6 +347,8 @@ class PyVisGraphProvider(BaseGraphProvider):
       <span class="color-dot" style="background:#E67E22"></span>Constant</label>
     <label><input type="checkbox" class="type-filter" value="DTO" checked>
       <span class="color-dot" style="background:#F5A623"></span>DTO</label>
+    <label><input type="checkbox" class="type-filter" value="XSLT_FILE" checked>
+      <span class="color-dot" style="background:#8E44AD"></span>XSLT File</label>
     <label><input type="checkbox" class="type-filter" value="XSLT_TEMPLATE" checked>
       <span class="color-dot" style="background:#9B59B6"></span>XSLT Template</label>
     <label><input type="checkbox" class="type-filter" value="XSLT_FIELD" checked>
@@ -359,6 +364,8 @@ class PyVisGraphProvider(BaseGraphProvider):
       <span class="color-dot" style="background:#2ECC71"></span>Transforms</label>
     <label><input type="checkbox" class="edge-filter" value="UNMARSHALS_TO" checked>
       <span class="color-dot" style="background:#F39C12"></span>Unmarshals To</label>
+    <label><input type="checkbox" class="edge-filter" value="LOADS_XSLT" checked>
+      <span class="color-dot" style="background:#00BCD4"></span>Loads XSLT</label>
     <label><input type="checkbox" class="edge-filter" value="CROSS_REPO" checked>
       <span class="color-dot" style="background:#E91E63"></span>Cross-Repo</label>
   </div>

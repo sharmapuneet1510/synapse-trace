@@ -15,6 +15,7 @@ class EdgeType(str, Enum):
     TRANSFORMS = "TRANSFORMS"
     UNMARSHALS_TO = "UNMARSHALS_TO"
     CROSS_REPO = "CROSS_REPO"
+    LOADS_XSLT = "LOADS_XSLT"
 
 
 class NodeType(str, Enum):
@@ -23,6 +24,7 @@ class NodeType(str, Enum):
     JAVA_FIELD = "JAVA_FIELD"
     JAVA_CONSTANT = "JAVA_CONSTANT"
     DTO = "DTO"
+    XSLT_FILE = "XSLT_FILE"
     XSLT_TEMPLATE = "XSLT_TEMPLATE"
     XSLT_FIELD = "XSLT_FIELD"
 
@@ -60,15 +62,25 @@ class LineageEdge:
 
 @dataclass
 class RepoConfig:
-    """Configuration for a single repository in the multi-repo scan."""
+    """Configuration for a single repository / module.
+
+    Supports three modes:
+      - scan_dirs: auto-discover .java and .xsl/.xslt files (recommended)
+      - java_dirs + xslt_dirs: explicit separation (legacy)
+      - Both: scan_dirs are auto-detected, explicit dirs are added on top
+    """
 
     name: str
     path: Path
+    scan_dirs: list[Path] = field(default_factory=list)
     java_dirs: list[Path] = field(default_factory=list)
     xslt_dirs: list[Path] = field(default_factory=list)
 
     def resolve_dirs(self) -> None:
         """Resolve relative dirs against the repo path."""
+        self.scan_dirs = [
+            d if d.is_absolute() else self.path / d for d in self.scan_dirs
+        ]
         self.java_dirs = [
             d if d.is_absolute() else self.path / d for d in self.java_dirs
         ]
@@ -82,7 +94,7 @@ class JavaFinding:
     class_name: str
     method_name: Optional[str]
     field_name: Optional[str]
-    finding_type: str  # "method_call" | "unmarshal" | "field_mapping" | "constant_ref" | "string_literal"
+    finding_type: str  # "method_call" | "unmarshal" | "field_mapping" | "constant_ref" | "string_literal" | "xslt_ref"
     target_class: Optional[str]
     target_field: Optional[str]
     meta: NodeMeta

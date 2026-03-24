@@ -1,5 +1,5 @@
 """Regex-based Java source parser for method calls, DTO unmarshalling, field mappings,
-constant references (e.g. MessageKey.N_EFFECTIVE_DATE), and string literals."""
+constant references (e.g. MessageKey.N_EFFECTIVE_DATE), string literals, and XSLT file references."""
 
 from __future__ import annotations
 
@@ -32,6 +32,12 @@ class JavaParser:
     )
     # String literals that look like field keys: uppercase with underscores, >= 3 chars
     _RE_STRING_KEY = re.compile(r'"([A-Z][A-Z0-9_]{2,})"')
+
+    # XSLT file references in Java code
+    _RE_XSLT_REF = re.compile(r'["\']([^"\']*\.xslt?)["\']')
+    _RE_TRANSFORMER_CALL = re.compile(
+        r"(?:newTransformer|newTemplates|transform)\s*\("
+    )
 
     _RE_STRING_LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"')
     _RE_SINGLE_COMMENT = re.compile(r"//.*$", re.MULTILINE)
@@ -165,6 +171,39 @@ class JavaParser:
                         finding_type="string_literal",
                         target_class=None,
                         target_field=key_value,
+                        meta=meta,
+                        repo_name=self._repo_name,
+                    )
+                )
+
+            # XSLT file references: "trade_transform.xsl", StreamSource("foo.xsl")
+            for m in self._RE_XSLT_REF.finditer(line_with_strings):
+                xslt_path = m.group(1)
+                # Extract just the filename for matching
+                xslt_name = Path(xslt_path).stem  # "trade_transform" from "path/to/trade_transform.xsl"
+                findings.append(
+                    JavaFinding(
+                        class_name=fqcn,
+                        method_name=current_method,
+                        field_name=xslt_name,
+                        finding_type="xslt_ref",
+                        target_class=None,
+                        target_field=xslt_path,  # full path string for resolution
+                        meta=meta,
+                        repo_name=self._repo_name,
+                    )
+                )
+
+            # Transformer calls: newTransformer(), transform() — marks the method as doing XSLT processing
+            if self._RE_TRANSFORMER_CALL.search(line):
+                findings.append(
+                    JavaFinding(
+                        class_name=fqcn,
+                        method_name=current_method,
+                        field_name=None,
+                        finding_type="method_call",
+                        target_class="Transformer",
+                        target_field="transform",
                         meta=meta,
                         repo_name=self._repo_name,
                     )

@@ -7,11 +7,17 @@ This document describes what the Synapse Trace parser produces at each stage of 
 ## Pipeline Overview
 
 ```
+                  ┌── ModuleScanner ──┐  (auto-scan mode)
+                  │   discovers files │
+                  │   detects refs    │
+                  └───────┬───────────┘
+                          ▼
 Java Files ──> JavaParser ──> JavaFinding[]  ─┐
                                                ├──> Stitcher ──> StitchedLineage ──> Providers
 XSLT Files ──> XsltParser ──> XsltFinding[] ──┘                                      │
                                                                                       ├── lineage_graph.json
-                                                                                      └── lineage_graph.html
+                                                                                      ├── lineage_graph.html
+                                                                                      └── fields/
 ```
 
 ---
@@ -28,6 +34,7 @@ The `JavaParser` scans `.java` files and produces a list of `JavaFinding` object
 | `unmarshal` | DTO deserialization | `mapper.readValue(json, TradeDTO.class)` | `target_class="TradeDTO"` |
 | `constant_ref` | Qualified constant references | `MessageKey.N_EFFECTIVE_DATE` | `field_name="N_EFFECTIVE_DATE"`, `target_class="MessageKey"` |
 | `string_literal` | String keys that look like field names | `"N_EFFECTIVE_DATE"` | `field_name="N_EFFECTIVE_DATE"` |
+| `xslt_ref` | Java code loading an XSLT file | `new StreamSource("trade.xsl")` | `field_name="trade"` (xslt stem), `target_field="/path/to/trade.xsl"` |
 | `method_call` | General method invocations | `service.validate(trade)` | `target_class="service"`, `target_field="validate"` |
 
 **Constant Reference Detection Rules:**
@@ -102,6 +109,7 @@ The `Stitcher` takes all Java and XSLT findings (from all repos) and builds a un
 | `JAVA_FIELD` | Diamond | `#A8D8EA` Pale Blue | A field involved in a setter/getter mapping |
 | `JAVA_CONSTANT` | Square | `#E67E22` Orange | A constant reference (`MessageKey.N_EFFECTIVE_DATE`) or string literal (`"N_EFFECTIVE_DATE"`) |
 | `DTO` | Hexagon | `#F5A623` Gold | A Data Transfer Object (target of unmarshal/readValue) |
+| `XSLT_FILE` | Database | `#8E44AD` Dark Purple | An XSLT file loaded by Java code |
 | `XSLT_TEMPLATE` | Triangle | `#9B59B6` Purple | An `xsl:template` definition |
 | `XSLT_FIELD` | Star | `#C39BD3` Light Purple | A field extracted via `xsl:value-of` |
 
@@ -133,6 +141,7 @@ Every node carries rich metadata for Neo4j's Property Graph Model:
 | `TRANSFORMS` | `#2ECC71` Green | XSLT template transforms a DTO or field | `XSLT:TradeOutput` → `DTO:TradeDTO` |
 | `UNMARSHALS_TO` | `#F39C12` Yellow | Deserialization target | `processMessage()` → `DTO:TradeDTO` |
 | `CROSS_REPO` | `#E91E63` Pink | Link between nodes from different repositories | XSLT field `effectiveDate` → lib constant `"EFFECTIVE_DATE"` |
+| `LOADS_XSLT` | `#00BCD4` Cyan | Java code loading an XSLT file | `TradeTransformService` → `trade_output.xsl` |
 
 ### Field Name Variation Matching
 
@@ -230,6 +239,7 @@ Examples:
   java::const::com.bank.trade.TradeService::MessageKey.N_EFFECTIVE_DATE
   java::literal::com.bank.trade.TradeService::N_EFFECTIVE_DATE
   java::dto::TradeDTO
+  xslt::file::trade_output.xsl
   xslt::TradeOutput
   xslt::field::TradeOutput::effectiveDate
 ```

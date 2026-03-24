@@ -1,4 +1,4 @@
-"""Smoke tests: single-repo, multi-repo, and field variation matching."""
+"""Smoke tests: single-repo, multi-repo, auto-scan, and field variation matching."""
 
 import json
 import sys
@@ -10,11 +10,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from orchestrator.models import RepoConfig
 from orchestrator.parsers.java_parser import JavaParser
 from orchestrator.parsers.xslt_parser import XsltParser
+from orchestrator.scanner import ModuleScanner
 from orchestrator.stitcher import Stitcher, _build_match_keys
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
 
 FIXTURES = Path(__file__).parent / "fixtures" / "sample"
 MULTI_REPO = Path(__file__).parent / "fixtures" / "multi-repo"
+MIXED_MODULE = Path(__file__).parent / "fixtures" / "mixed-module"
 
 
 # ---- Field variation matching tests ----
@@ -211,6 +213,107 @@ def test_multi_repo_pyvis_output(tmp_path):
     assert "lib-common" in repos_present or "app-trade" in repos_present
 
 
+# ---- Scanner tests ----
+
+def test_scanner_discovers_files():
+    """ModuleScanner should find all Java and XSLT files in a mixed module."""
+    scanner = ModuleScanner()
+    module = scanner.scan(MIXED_MODULE)
+
+    assert len(module.java_files) == 1, f"Expected 1 java file, got {len(module.java_files)}"
+    assert len(module.xslt_files) == 2, f"Expected 2 xslt files, got {len(module.xslt_files)}"
+    assert module.name == "mixed-module"
+
+
+def test_scanner_detects_xslt_refs():
+    """Scanner should detect cross-language XSLT references in Java code."""
+    scanner = ModuleScanner()
+    module = scanner.scan(MIXED_MODULE)
+
+    assert len(module.xslt_refs) >= 4, (
+        f"Expected >= 4 cross-language refs, got {len(module.xslt_refs)}"
+    )
+
+    # Should find stream_source and string_path ref types
+    ref_types = {r.ref_type for r in module.xslt_refs}
+    assert "stream_source" in ref_types, f"Missing stream_source refs, got {ref_types}"
+    assert "string_path" in ref_types, f"Missing string_path refs, got {ref_types}"
+
+
+def test_scanner_resolves_xslt_paths():
+    """Scanner should resolve XSLT filenames to actual file paths."""
+    scanner = ModuleScanner()
+    module = scanner.scan(MIXED_MODULE)
+
+    resolved = [r for r in module.xslt_refs if r.xslt_resolved is not None]
+    assert len(resolved) == len(module.xslt_refs), (
+        f"All refs should resolve; unresolved: "
+        f"{[r.xslt_filename for r in module.xslt_refs if r.xslt_resolved is None]}"
+    )
+
+    # Resolved paths should actually exist on disk
+    for r in resolved:
+        assert r.xslt_resolved.exists(), f"Resolved path doesn't exist: {r.xslt_resolved}"
+
+    # Should resolve to the two known XSLT files
+    resolved_names = {r.xslt_resolved.name for r in resolved}
+    assert "trade_output.xsl" in resolved_names
+    assert "settlement_mapping.xsl" in resolved_names
+
+
+def test_auto_scan_full_pipeline(tmp_path):
+    """End-to-end: auto-scan a mixed module, stitch, and persist to PyVis."""
+    scanner = ModuleScanner()
+    module = scanner.scan(MIXED_MODULE, name="mixed")
+
+    java_parser = JavaParser(repo_name="mixed")
+    xslt_parser = XsltParser(repo_name="mixed")
+    stitcher = Stitcher()
+
+    java_findings = []
+    for jf in module.java_files:
+        java_findings.extend(java_parser.parse_file(jf))
+
+    xslt_findings = []
+    for xf in module.xslt_files:
+        xslt_findings.extend(xslt_parser.parse_file(xf))
+
+    assert len(java_findings) > 0, "Should have Java findings"
+    assert len(xslt_findings) > 0, "Should have XSLT findings"
+
+    lineage = stitcher.stitch(java_findings, xslt_findings)
+
+    assert len(lineage.nodes) > 0
+    assert len(lineage.edges) > 0
+
+    # Should have LOADS_XSLT edges from Java→XSLT references
+    loads_xslt = [e for e in lineage.edges if e.edge_type.value == "LOADS_XSLT"]
+    assert len(loads_xslt) > 0, "Should have LOADS_XSLT edges"
+
+    # Persist and verify output
+    provider = PyVisGraphProvider(output_dir=tmp_path)
+    provider.ingest_lineage(lineage)
+    provider.persist()
+
+    assert (tmp_path / "lineage_graph.html").exists()
+    assert (tmp_path / "lineage_graph.json").exists()
+
+    data = json.loads((tmp_path / "lineage_graph.json").read_text())
+    assert len(data["nodes"]) == len(lineage.nodes)
+    assert len(data["links"]) == len(lineage.edges)
+
+    # Per-field pages should be generated
+    assert (tmp_path / "fields" / "index.html").exists()
+
+    # Verify XSLT_FILE nodes are present (stored as "type" in JSON)
+    xslt_file_nodes = [n for n in data["nodes"] if n.get("type") == "XSLT_FILE"]
+    assert len(xslt_file_nodes) > 0, "Should have XSLT_FILE nodes"
+
+    print(f"\n    Auto-scan pipeline: {len(lineage.nodes)} nodes, {len(lineage.edges)} edges")
+    print(f"    LOADS_XSLT edges: {len(loads_xslt)}")
+    print(f"    XSLT_FILE nodes: {len(xslt_file_nodes)}")
+
+
 if __name__ == "__main__":
     print("Running smoke tests...")
 
@@ -239,5 +342,18 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as td:
         test_multi_repo_pyvis_output(Path(td))
     print("  Multi-repo PyVis output: PASS")
+
+    test_scanner_discovers_files()
+    print("  Scanner discovers files: PASS")
+
+    test_scanner_detects_xslt_refs()
+    print("  Scanner detects XSLT refs: PASS")
+
+    test_scanner_resolves_xslt_paths()
+    print("  Scanner resolves XSLT paths: PASS")
+
+    with tempfile.TemporaryDirectory() as td:
+        test_auto_scan_full_pipeline(Path(td))
+    print("  Auto-scan full pipeline: PASS")
 
     print("\nAll smoke tests passed!")

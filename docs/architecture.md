@@ -4,7 +4,8 @@
 
 1. **Decouple parsing from storage** — Parsers produce findings, providers consume lineage. Neither knows about the other.
 2. **Multi-repo first** — Every finding carries a `repo_name`. Cross-repo links are first-class edges.
-3. **Plugin architecture** — New storage backends (Neo4j, S3, etc.) implement `BaseGraphProvider` without touching parser or stitcher code.
+3. **Auto-discover first** — The `ModuleScanner` finds source files and cross-language references automatically, removing the need to manually separate Java and XSLT directories.
+4. **Plugin architecture** — New storage backends (Neo4j, S3, etc.) implement `BaseGraphProvider` without touching parser or stitcher code.
 
 ---
 
@@ -15,6 +16,12 @@
 │                    SynapseTracer                        │
 │                    (parser.py)                          │
 │                                                         │
+│  ┌──────────────┐                                       │
+│  │ModuleScanner  │  Auto-discovers .java + .xsl files   │
+│  │(scanner.py)   │  Detects Java→XSLT references        │
+│  └──────┬────────┘                                      │
+│         │  ScannedModule                                │
+│         ▼  (file lists + XsltReference[])               │
 │  ┌──────────┐  ┌──────────┐                             │
 │  │ JavaParser│  │XsltParser│    Per-repo instances       │
 │  │(repo_name)│  │(repo_name)│                            │
@@ -22,12 +29,14 @@
 │        │               │                                 │
 │        ▼               ▼                                 │
 │   JavaFinding[]   XsltFinding[]                          │
+│   (incl xslt_ref)                                       │
 │        │               │                                 │
 │        └───────┬───────┘                                 │
 │                ▼                                         │
 │         ┌────────────┐                                   │
 │         │  Stitcher   │  Field normalization,            │
-│         │             │  cross-repo matching             │
+│         │             │  cross-repo matching,            │
+│         │             │  Java→XSLT execution links      │
 │         └──────┬──────┘                                  │
 │                ▼                                         │
 │        StitchedLineage                                   │
@@ -43,6 +52,7 @@
 │      ▼          ▼          ▼                             │
 │   .html      Cypher     (custom)                        │
 │   .json      stmts                                      │
+│   fields/                                               │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -118,9 +128,44 @@ STORAGE_REGISTRY["s3"] = S3GraphProvider
 
 ---
 
+## Module Scanner
+
+The `ModuleScanner` (`scanner.py`) is the auto-discovery layer that removes the need to manually separate Java and XSLT directories.
+
+### What it does
+
+1. **File discovery** — recursively finds all `.java` and `.xsl/.xslt` files under a directory
+2. **Cross-language reference detection** — scans Java code for patterns that load XSLT files:
+   - `StreamSource("file.xsl")` — transformer loading
+   - `getResourceAsStream("file.xsl")` / `getResource("file.xsl")` — resource loading
+   - `ClassPathResource("file.xsl")` — Spring classpath
+   - String literals ending in `.xsl` / `.xslt` (catch-all)
+3. **XSLT path resolution** — resolves referenced filenames to actual paths on disk:
+   - Exact basename match in discovered XSLT files
+   - Relative path from the Java file's directory
+   - Relative path from the module root
+   - Path suffix match for partial paths
+
+### Data flow
+
+```
+ModuleScanner.scan(root)
+    → ScannedModule
+        ├── java_files: list[Path]
+        ├── xslt_files: list[Path]
+        └── xslt_refs: list[XsltReference]
+              ├── java_class, java_method
+              ├── xslt_filename, xslt_resolved
+              └── ref_type (stream_source | resource | classpath | string_path)
+```
+
+The `JavaParser` picks up XSLT references as `xslt_ref` findings, which the stitcher converts into `XSLT_FILE` nodes and `LOADS_XSLT` edges.
+
+---
+
 ## Stitching Algorithm
 
-The stitcher is the core intelligence layer. It operates in two phases:
+The stitcher is the core intelligence layer. It operates in three phases:
 
 ### Phase 1: Build Nodes and Intra-Language Edges
 
@@ -131,10 +176,20 @@ For each finding, create the appropriate graph node and edges within the same la
 - Java `field_mapping` → `JAVA_FIELD` nodes + `DERIVED_FROM` edge (source → target)
 - Java `constant_ref` → `JAVA_CONSTANT` node + `CALLS` edge from method
 - Java `string_literal` → `JAVA_CONSTANT` node + `CALLS` edge from method
+- Java `xslt_ref` → `XSLT_FILE` node + `LOADS_XSLT` edge from method
 - XSLT `value_of` → `XSLT_FIELD` node + `TRANSFORMS` edge from template
 - XSLT `template_call` → `CALLS` edge between templates
 
-### Phase 2: Cross-Language and Cross-Repo Stitching
+### Phase 2: Java→XSLT Execution Sequence
+
+For `xslt_ref` findings, the stitcher:
+1. Creates `XSLT_FILE` nodes for each referenced XSLT file
+2. Creates `LOADS_XSLT` edges from Java methods to XSLT file nodes
+3. Links XSLT templates to their parent XSLT file nodes via `CALLS` edges
+
+This produces the execution chain: `Java Method` → (LOADS_XSLT) → `XSLT File` → (CALLS) → `XSLT Template` → (TRANSFORMS) → `XSLT Field`
+
+### Phase 3: Cross-Language and Cross-Repo Stitching
 
 **Field matching** uses `_build_match_keys()` to generate all canonical forms of every field name:
 
@@ -160,8 +215,16 @@ All models are defined in `models.py` using Python `dataclass(slots=True)` for m
 RepoConfig
 ├── name: str
 ├── path: Path
-├── java_dirs: list[Path]
-└── xslt_dirs: list[Path]
+├── scan_dirs: list[Path]      # auto-scan mode
+├── java_dirs: list[Path]      # explicit mode
+└── xslt_dirs: list[Path]      # explicit mode
+
+ScannedModule                    # scanner.py
+├── name: str
+├── root: Path
+├── java_files: list[Path]
+├── xslt_files: list[Path]
+└── xslt_refs: list[XsltReference]
 
 SynapseConfig
 ├── repos: list[RepoConfig]

@@ -140,6 +140,7 @@ class Stitcher:
         java_classes: set[str] = set()
         java_methods: dict[str, JavaFinding] = {}
         java_unmarshals: list[JavaFinding] = []
+        java_xslt_refs: list[JavaFinding] = []
         # Constant definitions: qualifier.CONST -> bare CONST (for cross-repo resolution)
         java_constants: dict[str, list[JavaFinding]] = defaultdict(list)
 
@@ -168,6 +169,9 @@ class Stitcher:
 
             elif jf.finding_type == "unmarshal":
                 java_unmarshals.append(jf)
+
+            elif jf.finding_type == "xslt_ref":
+                java_xslt_refs.append(jf)
 
             elif jf.finding_type == "method_call" and jf.method_name:
                 key = f"{jf.class_name}::{jf.method_name}"
@@ -368,7 +372,106 @@ class Stitcher:
                 _add_edge(tpl_id, called_id, EdgeType.CALLS)
 
         # ==========================================
-        # Phase 2: Cross-language stitching edges
+        # Phase 2: Java → XSLT execution sequence
+        # ==========================================
+
+        # Build XSLT file nodes from xslt_findings (group by source file)
+        xslt_files_seen: dict[str, str] = {}  # file_path -> node_id
+        for xf in xslt_findings:
+            fp = xf.meta.file_path
+            if fp and fp not in xslt_files_seen:
+                from pathlib import Path as _P
+                file_stem = _P(fp).stem
+                file_id = f"xslt::file::{file_stem}"
+                xslt_files_seen[fp] = file_id
+                repo_props = {"repo": xf.repo_name} if xf.repo_name else {}
+                _add_node(
+                    LineageNode(
+                        id=file_id,
+                        label=f"{_P(fp).name}",
+                        node_type=NodeType.XSLT_FILE,
+                        meta=NodeMeta(file_path=fp, line_number=0, code_snippet=fp),
+                        properties={"xslt_path": fp, **repo_props},
+                    )
+                )
+
+        # Link XSLT templates to their source file
+        for xf in xslt_findings:
+            fp = xf.meta.file_path
+            if fp in xslt_files_seen:
+                tpl_id = f"xslt::{xf.template_name}"
+                file_id = xslt_files_seen[fp]
+                if tpl_id in nodes:
+                    _add_edge(file_id, tpl_id, EdgeType.CALLS, {"relation": "contains"})
+
+        # Java xslt_ref findings → LOADS_XSLT edges
+        # Match Java XSLT references to XSLT file nodes by filename
+        for jf in java_xslt_refs:
+            cls_id = f"java::class::{jf.class_name}"
+            method_id = (
+                f"java::method::{jf.class_name}::{jf.method_name}"
+                if jf.method_name
+                else cls_id
+            )
+            repo_props = {"repo": jf.repo_name} if jf.repo_name else {}
+
+            # Ensure the method node exists
+            if jf.method_name:
+                _add_node(
+                    LineageNode(
+                        id=method_id,
+                        label=f"{jf.class_name.rsplit('.', 1)[-1]}.{jf.method_name}()",
+                        node_type=NodeType.JAVA_METHOD,
+                        meta=jf.meta,
+                        properties=repo_props,
+                    )
+                )
+                _add_edge(cls_id, method_id, EdgeType.CALLS)
+
+            # Match the xslt filename to a known XSLT file node
+            xslt_stem = jf.field_name  # e.g. "trade_transform"
+            xslt_full_path = jf.target_field  # e.g. "path/to/trade_transform.xsl"
+
+            matched_file_id = None
+            # Try exact stem match
+            candidate_id = f"xslt::file::{xslt_stem}"
+            if candidate_id in nodes:
+                matched_file_id = candidate_id
+            else:
+                # Try matching by file path suffix
+                for fp, fid in xslt_files_seen.items():
+                    if fp.endswith(xslt_full_path) or _P(fp).stem == xslt_stem:
+                        matched_file_id = fid
+                        break
+
+            if matched_file_id:
+                _add_edge(
+                    method_id,
+                    matched_file_id,
+                    EdgeType.LOADS_XSLT,
+                    {"xslt_path": xslt_full_path, "ref_from": jf.class_name},
+                )
+            else:
+                # Create a placeholder XSLT file node (unresolved)
+                placeholder_id = f"xslt::file::{xslt_stem}"
+                _add_node(
+                    LineageNode(
+                        id=placeholder_id,
+                        label=f"{xslt_full_path} (unresolved)",
+                        node_type=NodeType.XSLT_FILE,
+                        meta=jf.meta,
+                        properties={"xslt_path": xslt_full_path, "unresolved": True, **repo_props},
+                    )
+                )
+                _add_edge(
+                    method_id,
+                    placeholder_id,
+                    EdgeType.LOADS_XSLT,
+                    {"xslt_path": xslt_full_path, "ref_from": jf.class_name},
+                )
+
+        # ==========================================
+        # Phase 3: Cross-language field stitching
         # ==========================================
 
         # Match XSLT fields to Java fields/constants/literals by canonical keys

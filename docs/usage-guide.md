@@ -15,9 +15,51 @@ pip install -e ".[dev]"
 
 ---
 
-## Single-Repository Mode
+## Auto-Scan Mode (Recommended)
 
-Point the parser at your Java and XSLT directories:
+Point the parser at a module directory and it will auto-discover `.java` and `.xsl/.xslt` files, detect how Java code references XSLT files, and build the execution sequence:
+
+```bash
+# Scan a single module
+synapse-trace --scan src/ --output-dir output
+
+# Scan multiple modules
+synapse-trace --scan app/src lib/src --names app-trade lib-common --output-dir output
+```
+
+Auto-scan detects cross-language references including:
+- `StreamSource("file.xsl")` — transformer loading
+- `getResourceAsStream("file.xsl")` / `getResource("file.xsl")` — resource loading
+- `ClassPathResource("file.xsl")` — Spring classpath resources
+- Any string literal ending in `.xsl` / `.xslt`
+
+XSLT filenames are resolved to actual paths on disk via basename matching, relative paths, and suffix matching.
+
+### JSON Config with Auto-Scan
+
+You can also use `scan_dirs` in a JSON config to enable auto-discovery:
+
+```json
+{
+  "repos": [
+    {
+      "name": "trade-module",
+      "path": "/path/to/trade-module",
+      "scan_dirs": ["."]
+    }
+  ]
+}
+```
+
+```bash
+synapse-trace --config repos.json --output-dir output
+```
+
+---
+
+## Single-Repository Mode (Explicit)
+
+Point the parser at your Java and XSLT directories separately:
 
 ```bash
 synapse-trace \
@@ -153,8 +195,8 @@ output/
 Open `lineage_graph.html` in any browser for the full graph. The control panel (top-right) provides:
 
 - **Search** — Type a node name to highlight matches and dim everything else
-- **Node Type Filters** — Toggle visibility of Java Classes, Methods, Fields, Constants, DTOs, XSLT Templates, XSLT Fields
-- **Edge Type Filters** — Toggle Calls, Derived From, Transforms, Unmarshals To, Cross-Repo
+- **Node Type Filters** — Toggle visibility of Java Classes, Methods, Fields, Constants, DTOs, XSLT Files, XSLT Templates, XSLT Fields
+- **Edge Type Filters** — Toggle Calls, Derived From, Transforms, Unmarshals To, Cross-Repo, Loads XSLT
 - **Focus Mode** — Double-click any node to isolate its immediate neighborhood
 - **Reset View** — Restore all nodes and edges
 - **Fit All** — Zoom to fit the entire graph
@@ -231,6 +273,8 @@ for edge in lineage.edges:
 
 ```
 synapse-trace [-h]
+              [--scan DIR [DIR ...]]
+              [--names NAME [NAME ...]]
               [--config CONFIG]
               [--repo NAME:PATH]
               [--java-dirs DIR [DIR ...]]
@@ -244,10 +288,12 @@ synapse-trace [-h]
 
 | Argument | Description | Default |
 |----------|-------------|---------|
+| `--scan` | Directories to auto-scan for .java and .xsl/.xslt files | — |
+| `--names` | Names for each `--scan` directory (optional) | Directory basename |
 | `--config` | Path to JSON config with repos list | — |
 | `--repo` | Inline repo definition `NAME:PATH` (repeatable) | — |
-| `--java-dirs` | Java source directories | Required (single-repo) |
-| `--xslt-dirs` | XSLT source directories | Required (single-repo) |
+| `--java-dirs` | Java source directories (explicit mode) | — |
+| `--xslt-dirs` | XSLT source directories (explicit mode) | — |
 | `--storages` | Storage providers to use | `pyvis` |
 | `--output-dir` | Output directory | `output` |
 | `--neo4j-uri` | Neo4j bolt URI | — |
