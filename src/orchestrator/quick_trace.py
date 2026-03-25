@@ -35,10 +35,14 @@ Parsers are pluggable via a file-extension registry:
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
+from orchestrator import live_events
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, Union
+
+logger = logging.getLogger(__name__)
 
 from orchestrator.models import (
     JavaFinding, LineageEdge, LineageNode, StitchedLineage, XsltFinding,
@@ -79,6 +83,7 @@ def register_parser(extension: str, parser_class: type) -> None:
         extension: File extension including the dot, e.g. ".groovy"
         parser_class: Must have __init__(repo_name: str) and parse_file(Path) -> list
     """
+    logger.info("Registered parser %s for extension '%s'", parser_class.__name__, extension)
     _PARSER_REGISTRY[extension.lower()] = parser_class
 
 
@@ -87,7 +92,9 @@ def get_parser_for_file(file_path: Path, repo_name: str = "") -> object | None:
     ext = file_path.suffix.lower()
     cls = _PARSER_REGISTRY.get(ext)
     if cls is None:
+        logger.debug("No parser registered for extension '%s' (file: %s)", ext, file_path.name)
         return None
+    logger.debug("Selected %s for %s", cls.__name__, file_path.name)
     return cls(repo_name=repo_name)
 
 
@@ -324,11 +331,11 @@ def _match_node(node: LineageNode, targets: list[str], target_keys: set[str]) ->
     # Check: does any target appear in the node's searchable text?
     for t in targets:
         t_lower = t.lower()
-        # Exact match on any searchable value
         if t_lower in searchable:
+            logger.debug("  Match: node '%s' matched target '%s' (exact in searchable)", node.id, t)
             return True
-        # Substring match on label or ID
         if t_lower in node.label.lower() or t_lower in node.id.lower():
+            logger.debug("  Match: node '%s' matched target '%s' (substring in label/id)", node.id, t)
             return True
 
     # Check canonical match keys overlap
@@ -336,7 +343,10 @@ def _match_node(node: LineageNode, targets: list[str], target_keys: set[str]) ->
     for s in searchable:
         node_keys |= _build_match_keys(s)
 
-    return bool(node_keys & target_keys)
+    overlap = node_keys & target_keys
+    if overlap:
+        logger.debug("  Match: node '%s' matched via canonical keys: %s", node.id, overlap)
+    return bool(overlap)
 
 
 def _filter_lineage(
@@ -354,25 +364,31 @@ def _filter_lineage(
     if not targets:
         return lineage
 
+    logger.info("Filtering lineage for targets=%s, type_filter=%s, max_depth=%d", targets, type_filter, max_depth)
+
     # Build canonical keys for all targets for fuzzy matching
     target_keys: set[str] = set()
     for t in targets:
-        target_keys |= _build_match_keys(t)
+        keys = _build_match_keys(t)
+        target_keys |= keys
+        logger.debug("  Target '%s' canonical keys: %s", t, keys)
 
     # Step 1: Find seed nodes
     node_by_id: dict[str, LineageNode] = {n.id: n for n in lineage.nodes}
     seed_ids: set[str] = set()
 
+    logger.debug("  Searching %d nodes for seed matches...", len(lineage.nodes))
     for node in lineage.nodes:
-        # Apply type filter if specified
         if type_filter and node.node_type.value not in type_filter:
             continue
         if _match_node(node, targets, target_keys):
             seed_ids.add(node.id)
 
     if not seed_ids:
-        print(f"  Warning: no nodes matched targets {targets}")
+        logger.warning("  No nodes matched targets %s", targets)
         return StitchedLineage(nodes=[], edges=[])
+
+    logger.info("  Found %d seed node(s): %s", len(seed_ids), seed_ids)
 
     # Step 2: Build adjacency (undirected) and BFS from seeds
     adj: dict[str, set[str]] = defaultdict(set)
@@ -399,6 +415,7 @@ def _filter_lineage(
         if e.source_id in reachable and e.target_id in reachable
     ]
 
+    logger.info("  BFS reached %d nodes, filtered to %d nodes / %d edges", len(reachable), len(filtered_nodes), len(filtered_edges))
     return StitchedLineage(nodes=filtered_nodes, edges=filtered_edges)
 
 
@@ -414,13 +431,16 @@ def _parse_file_auto(
     """Parse a single file using the right parser based on file extension."""
     parser = get_parser_for_file(file_path, repo_name=repo_name)
     if parser is None:
-        return  # unsupported extension, skip
+        logger.debug("Skipping unsupported file: %s", file_path)
+        return
 
     findings = parser.parse_file(file_path)
     if isinstance(parser, XsltParser):
         xslt_findings.extend(findings)
+        logger.debug("Auto-parsed %s -> %d XSLT findings", file_path.name, len(findings))
     else:
         java_findings.extend(findings)
+        logger.debug("Auto-parsed %s -> %d Java findings", file_path.name, len(findings))
 
 
 def _find_classes_defined(findings: list[JavaFinding]) -> set[str]:
@@ -428,10 +448,10 @@ def _find_classes_defined(findings: list[JavaFinding]) -> set[str]:
     classes: set[str] = set()
     for f in findings:
         if f.class_name:
-            # Full qualified: com.acme.app.TradeService -> TradeService
             classes.add(f.class_name)
             simple = f.class_name.rsplit(".", 1)[-1]
             classes.add(simple)
+    logger.info("Classes defined in project: %s", sorted(classes))
     return classes
 
 
@@ -459,14 +479,16 @@ def _find_unresolved_refs(
     for f in findings:
         if f.finding_type == "constant_ref" and f.target_class:
             if f.target_class not in defined_classes and f.target_class not in ignore:
+                logger.debug("Unresolved constant_ref: %s.%s in %s", f.target_class, f.field_name, f.class_name)
                 unresolved.add(f.target_class)
 
         if f.finding_type == "method_call" and f.target_class:
             if f.target_class not in defined_classes and f.target_class not in ignore:
-                # Only if it looks like a class name (starts with uppercase)
                 if f.target_class[0].isupper():
+                    logger.debug("Unresolved method_call target: %s.%s in %s", f.target_class, f.target_field, f.class_name)
                     unresolved.add(f.target_class)
 
+    logger.info("Unresolved references: %s", sorted(unresolved) if unresolved else "(none)")
     return unresolved
 
 
@@ -481,22 +503,38 @@ def _search_lib_for_classes(
     found: set[str] = set()
 
     if not lib_path.exists():
+        logger.warning("Library path does not exist: %s", lib_path)
         return matching, found
+
+    logger.info("Searching library '%s' at %s for classes: %s", lib_name, lib_path, sorted(target_classes))
+    live_events.emit(live_events.LIB_SEARCH, {
+        "lib_name": lib_name, "lib_path": str(lib_path),
+        "target_classes": sorted(target_classes),
+    })
 
     import re
     re_class = re.compile(
         r"(?:public|private|protected)?\s*(?:abstract\s+)?(?:class|interface|enum)\s+(\w+)"
     )
 
-    for java_file in lib_path.rglob("*.java"):
+    java_files = list(lib_path.rglob("*.java"))
+    logger.debug("  Scanning %d Java files in library '%s'", len(java_files), lib_name)
+
+    for java_file in java_files:
         text = java_file.read_text(errors="replace")
         for m in re_class.finditer(text):
             class_name = m.group(1)
             if class_name in target_classes:
+                logger.info("  Found class '%s' in %s", class_name, java_file)
+                live_events.emit(live_events.LIB_FOUND, {
+                    "class_name": class_name, "file": str(java_file), "lib_name": lib_name,
+                })
                 matching.append(java_file)
                 found.add(class_name)
-                break  # one match per file is enough
+                break
 
+    logger.info("  Library '%s' result: found %d/%d classes -> %s",
+                lib_name, len(found), len(target_classes), sorted(found) if found else "(none)")
     return matching, found
 
 
@@ -545,20 +583,24 @@ def trace_project(
     all_xslt: list[XsltFinding] = []
 
     # ── Step 1: Scan main project ────────────────────────────────────────
+    logger.info("=== trace_project: main=%s, libs=%s ===", main_path, [str(p) for p in libs])
+    live_events.emit(live_events.TRACE_START, {
+        "function": "trace_project", "main": str(main_path),
+        "libs": [str(p) for p in libs], "targets": targets,
+    })
     project = scanner.scan_project(main_path, name=main_name)
-    print(f"Main project: {project.summary()}")
+    logger.info("Main project: %s", project.summary())
 
     for mod in project.modules:
-        print(f"  Module: {mod.name}")
+        logger.info("  Parsing module: %s", mod.name)
         repo_tag = mod.name
 
-        # Parse each file with the right parser based on extension
         for jf in mod.java_files:
             _parse_file_auto(jf, repo_tag, all_java, all_xslt)
         for xf in mod.xslt_files:
             _parse_file_auto(xf, repo_tag, all_java, all_xslt)
 
-    print(f"  Parsed: {len(all_java)} java findings, {len(all_xslt)} xslt findings")
+    logger.info("  Parsed: %d java findings, %d xslt findings", len(all_java), len(all_xslt))
 
     # ── Step 2: Find unresolved references ───────────────────────────────
     defined_classes = _find_classes_defined(all_java)
@@ -568,7 +610,7 @@ def trace_project(
     still_unresolved = set(unresolved)
 
     if unresolved:
-        print(f"  Unresolved references: {', '.join(sorted(unresolved))}")
+        logger.info("  Unresolved references: %s", ', '.join(sorted(unresolved)))
 
     # ── Step 3: Search libraries for unresolved classes ──────────────────
     if unresolved and libs:
@@ -580,30 +622,34 @@ def trace_project(
             )
 
             if found_classes:
-                print(f"  Library [{lib_name}]: found {', '.join(sorted(found_classes))}")
+                logger.info("  Library [%s]: resolved %s", lib_name, ', '.join(sorted(found_classes)))
                 for cls in found_classes:
                     resolved_from_libs[cls] = lib_name
                 still_unresolved -= found_classes
 
-                # Parse those library files
                 for lf in matching_files:
                     _parse_file_auto(lf, lib_name, all_java, all_xslt)
 
             if not still_unresolved:
-                break  # all resolved
+                logger.info("  All references resolved from libraries")
+                break
 
     if still_unresolved:
-        print(f"  Still unresolved: {', '.join(sorted(still_unresolved))}")
+        logger.warning("  Still unresolved: %s", ', '.join(sorted(still_unresolved)))
 
     # ── Step 4: Stitch ───────────────────────────────────────────────────
     lineage = Stitcher().stitch(all_java, all_xslt)
 
     # ── Step 5: Filter to targets (if specified) ─────────────────────────
     if targets:
-        print(f"  Filtering to targets: {', '.join(targets)}")
+        logger.info("  Filtering to targets: %s", ', '.join(targets))
         lineage = _filter_lineage(lineage, targets)
-        print(f"  Filtered: {len(lineage.nodes)} nodes, {len(lineage.edges)} edges")
+        logger.info("  Filtered: %d nodes, %d edges", len(lineage.nodes), len(lineage.edges))
 
+    live_events.emit(live_events.TRACE_COMPLETE, {
+        "function": "trace_project", "nodes": len(lineage.nodes), "edges": len(lineage.edges),
+        "resolved": dict(resolved_from_libs), "unresolved": list(still_unresolved),
+    })
     return TraceResult(
         lineage=lineage,
         java_findings=all_java,
@@ -660,6 +706,8 @@ def trace(
     libs = [Path(p) for p in (libs or [])]
 
     # Step 1: Scan and parse all projects + libs (full graph first)
+    logger.info("=== trace(name='%s', type='%s', search_type='%s') ===", name, type, search_type)
+    logger.info("  Projects: %s, Libs: %s", [str(p) for p in project_paths], [str(p) for p in libs])
     scanner = ModuleScanner()
     all_java: list[JavaFinding] = []
     all_xslt: list[XsltFinding] = []
@@ -669,7 +717,7 @@ def trace(
     for proj_path in project_paths:
         proj_name = proj_path.name
         proj = scanner.scan_project(proj_path, name=proj_name)
-        print(f"Project: {proj.summary()}")
+        logger.info("Project: %s", proj.summary())
 
         for mod in proj.modules:
             for jf in mod.java_files:
@@ -700,17 +748,15 @@ def trace(
 
     # Step 3: Filter by type and search_type
     targets = [name]
-
-    # Type-based pre-filter: narrow seed nodes by node type
     type_filter = _TYPE_MAP.get(type.lower(), None)
+    logger.info("  Applying filter: targets=%s, type_filter=%s, search_type=%s", targets, type_filter, search_type)
 
     if search_type.lower() == "exact":
         filtered = _filter_lineage_exact(lineage, name, type_filter=type_filter)
     else:
         filtered = _filter_lineage(lineage, targets, type_filter=type_filter)
 
-    print(f"  trace(\"{name}\", type=\"{type}\", search_type=\"{search_type}\")")
-    print(f"  Result: {len(filtered.nodes)} nodes, {len(filtered.edges)} edges")
+    logger.info("  trace('%s') result: %d nodes, %d edges", name, len(filtered.nodes), len(filtered.edges))
 
     return TraceResult(
         lineage=filtered,
@@ -739,33 +785,34 @@ def _filter_lineage_exact(
     max_depth: int = 15,
 ) -> StitchedLineage:
     """Filter lineage with exact name matching (no fuzzy canonical forms)."""
+    logger.info("Exact filter for '%s', type_filter=%s", name, type_filter)
     node_by_id: dict[str, LineageNode] = {n.id: n for n in lineage.nodes}
     seed_ids: set[str] = set()
     name_lower = name.lower()
 
     for node in lineage.nodes:
-        # Type filter
         if type_filter and node.node_type.value not in type_filter:
             continue
 
-        # Exact match on label, bare_name, or ID segment
         searchable = {
             node.label.lower().strip('"'),
             node.properties.get("bare_name", "").lower(),
             node.properties.get("output_element", "").lower(),
         }
-        # Last segment of ID
         last_seg = node.id.rsplit("::", 1)[-1].lower()
         if "." in last_seg:
             searchable.add(last_seg.rsplit(".", 1)[-1])
         searchable.add(last_seg)
 
         if name_lower in searchable:
+            logger.debug("  Exact match: node '%s' (label='%s') matched '%s'", node.id, node.label, name)
             seed_ids.add(node.id)
 
     if not seed_ids:
-        print(f"  Warning: no exact match for \"{name}\"")
+        logger.warning("  No exact match for '%s'", name)
         return StitchedLineage(nodes=[], edges=[])
+
+    logger.info("  Found %d exact seed(s): %s", len(seed_ids), seed_ids)
 
     # BFS from seeds
     adj: dict[str, set[str]] = defaultdict(set)
@@ -799,6 +846,8 @@ def trace_files(
 
     Files are dispatched to the correct parser by extension.
     """
+    logger.info("=== trace_files: %d java, %d xslt files ===",
+                len(java_files or []), len(xslt_files or []))
     all_files = []
     for f in (java_files or []):
         all_files.append(Path(f))
@@ -810,10 +859,11 @@ def trace_files(
 
     for fp in all_files:
         if not fp.exists():
-            print(f"  Warning: file not found: {fp}")
+            logger.warning("  File not found: %s", fp)
             continue
         _parse_file_auto(fp, repo_name, all_java, all_xslt)
 
+    logger.info("  Parsed: %d java findings, %d xslt findings", len(all_java), len(all_xslt))
     lineage = Stitcher().stitch(all_java, all_xslt)
     return TraceResult(lineage=lineage, java_findings=all_java, xslt_findings=all_xslt)
 
@@ -834,6 +884,7 @@ def trace_repos(
         project_scan: If True, auto-discover modules under path (optional)
         libs:         List of library paths to resolve unresolved refs (optional)
     """
+    logger.info("=== trace_repos: %d repo(s) ===", len(repos))
     scanner = ModuleScanner()
     all_java: list[JavaFinding] = []
     all_xslt: list[XsltFinding] = []
@@ -841,18 +892,19 @@ def trace_repos(
     for repo in repos:
         name = repo["name"]
         root = Path(repo["path"])
+        logger.info("Processing repo '%s' at %s", name, root)
 
         # --- Project scan with library resolution ---
         if repo.get("project_scan"):
             libs = [Path(p) for p in repo.get("libs", [])]
             if libs:
-                # Use trace_project for dependency-aware scanning
+                logger.info("  [%s] Project scan with %d libs", name, len(libs))
                 result = trace_project(main=root, libs=libs, main_name=name)
                 all_java.extend(result.java_findings)
                 all_xslt.extend(result.xslt_findings)
             else:
                 project = scanner.scan_project(root, name=name)
-                print(f"  [{name}] {project.summary()}")
+                logger.info("  [%s] %s", name, project.summary())
                 for mod in project.modules:
                     for jf in mod.java_files:
                         _parse_file_auto(jf, mod.name, all_java, all_xslt)
@@ -863,7 +915,7 @@ def trace_repos(
         # --- Auto-scan ---
         if repo.get("scan"):
             module = scanner.scan(root, name=name)
-            print(f"  [{name}] {module.summary()}")
+            logger.info("  [%s] %s", name, module.summary())
             for jf in module.java_files:
                 _parse_file_auto(jf, name, all_java, all_xslt)
             for xf in module.xslt_files:
@@ -874,7 +926,7 @@ def trace_repos(
         for fp in repo.get("java_files", []) + repo.get("xslt_files", []):
             fp = Path(fp)
             if not fp.exists():
-                print(f"  [{name}] Warning: {fp} not found")
+                logger.warning("  [%s] File not found: %s", name, fp)
                 continue
             _parse_file_auto(fp, name, all_java, all_xslt)
 
@@ -890,5 +942,6 @@ def trace_repos(
             if xd.exists():
                 all_xslt.extend(xslt_parser.parse_directory(xd))
 
+    logger.info("All repos parsed: %d java findings, %d xslt findings", len(all_java), len(all_xslt))
     lineage = Stitcher().stitch(all_java, all_xslt)
     return TraceResult(lineage=lineage, java_findings=all_java, xslt_findings=all_xslt)

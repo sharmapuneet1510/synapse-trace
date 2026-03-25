@@ -1,0 +1,97 @@
+{
+  "jurisdictions": [
+    {
+      "id": "hkma",
+      "name": "HKMA",
+      "display_name": "Hong Kong Monetary Authority",
+      "git_path": "/repos/hkma-reporting",
+      "lib_path": "/repos/hkma-common-lib",
+      "absolute_download_path": "/data/downloads/hkma",
+      "module_type": "dtcc/iso",
+      "configs": {
+        "TradeState": {
+          "fields": [
+            { "header": "Effective Date", "field_name": "N_EFFECTIVE_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Expiration Date", "field_name": "N_EXPIRATION_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Trade ID", "field_name": "N_TRADE_ID", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Counterparty 1", "field_name": "N_COUNTERPARTY_1", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Counterparty 2", "field_name": "N_COUNTERPARTY_2", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Counterparty 1 Identifier Type", "field_name": "N_COUNTERPARTY_1_ID_TYPE", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Counterparty 1 BuyerSeller", "field_name": "N_COUNTERPARTY_1_BUYER_SELLER", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Direction of Leg 1 (Payer/Receiver)", "field_name": "N_DIRECTION_LEG_1", "asset_classes": ["InterestRate"] },
+            { "header": "Direction of Leg 2 (Payer/Receiver)", "field_name": "N_DIRECTION_LEG_2", "asset_classes": ["InterestRate"] },
+            { "header": "Trade Amount", "field_name": "N_TRADE_AMOUNT", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Clearing Member", "field_name": "N_CLEARING_MEMBER", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Clearing Identifier", "field_name": "N_CLEARING_ID", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Confirmed", "field_name": "N_CONFIRMED", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Custom Counterparty", "field_name": "N_CUSTOM_COUNTERPARTY", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Closing Direction", "field_name": "N_CLOSING_DIRECTION", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Cashflows", "field_name": "N_CASHFLOWS", "asset_classes": ["InterestRate"] },
+            { "header": "Total Contractual Settlement Date", "field_name": "N_CONTRACTUAL_SETTLEMENT_DATE", "asset_classes": ["InterestRate", "FX"] },
+            { "header": "Settlement Currency Leg 1", "field_name": "N_SETTLEMENT_CURRENCY_LEG_1", "asset_classes": ["InterestRate", "FX"] },
+            { "header": "Settlement Currency Leg 2", "field_name": "N_SETTLEMENT_CURRENCY_LEG_2", "asset_classes": ["InterestRate", "FX"] },
+            { "header": "Unique Transaction Identifier", "field_name": "N_UTI", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Reporting Timestamp", "field_name": "N_REPORTING_TIMESTAMP", "asset_classes": ["InterestRate", "CDS", "FX"] }
+          ]
+        },
+        "Valuation": {
+          "fields": [
+            { "header": "Mark to Market Value", "field_name": "N_MTM_VALUE", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Valuation Date", "field_name": "N_VALUATION_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Valuation Type", "field_name": "N_VALUATION_TYPE", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Collateral Portfolio Code", "field_name": "N_COLLATERAL_PORTFOLIO_CODE", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Delta", "field_name": "N_DELTA", "asset_classes": ["InterestRate"] },
+            { "header": "Next Floating Reference Reset Date", "field_name": "N_NEXT_FLOAT_RESET_DATE", "asset_classes": ["InterestRate"] }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mas",
+      "name": "MAS",
+      "display_name": "Monetary Authority of Singapore",
+      "git_path": "/repos/mas-reporting",
+      "lib_path": "/repos/mas-common-lib",
+      "absolute_download_path": "/data/downloads/mas",
+      "module_type": "exception-service",
+      "configs": {
+        "TradeState": {
+          "fields": [
+            { "header": "Effective Date", "field_name": "N_EFFECTIVE_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Expiration Date", "field_name": "N_EXPIRATION_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Trade ID", "field_name": "N_TRADE_ID", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Counterparty 1", "field_name": "N_COUNTERPARTY_1", "asset_classes": ["InterestRate", "CDS", "FX"] },
+            { "header": "Counterparty 2", "field_name": "N_COUNTERPARTY_2", "asset_classes": ["InterestRate", "CDS", "FX"] }
+          ]
+        },
+        "Valuation": {
+          "fields": [
+            { "header": "Mark to Market Value", "field_name": "N_MTM_VALUE", "asset_classes": ["InterestRate", "CDS"] },
+            { "header": "Valuation Date", "field_name": "N_VALUATION_DATE", "asset_classes": ["InterestRate", "CDS", "FX"] }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dtcc",
+      "name": "DTCC",
+      "display_name": "Depository Trust & Clearing Corporation",
+      "git_path": "/repos/dtcc-iso-reporting",
+      "lib_path": "/repos/dtcc-common-lib",
+      "absolute_download_path": "/data/downloads/dtcc",
+      "module_type": "dtcc/iso",
+      "configs": {
+        "TradeState": {
+          "fields": [
+            { "header": "Effective Date", "field_name": "N_EFFECTIVE_DATE", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] },
+            { "header": "Expiration Date", "field_name": "N_EXPIRATION_DATE", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] },
+            { "header": "Trade ID", "field_name": "N_TRADE_ID", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] },
+            { "header": "Counterparty 1", "field_name": "N_COUNTERPARTY_1", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] },
+            { "header": "Counterparty 2", "field_name": "N_COUNTERPARTY_2", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] },
+            { "header": "Reporting Timestamp", "field_name": "N_REPORTING_TIMESTAMP", "asset_classes": ["InterestRate", "CDS", "FX", "Equity"] }
+          ]
+        }
+      }
+    }
+  ]
+}

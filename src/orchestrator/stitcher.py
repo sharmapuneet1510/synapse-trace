@@ -8,8 +8,13 @@ Handles field name variations across languages and repositories:
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
+
+from orchestrator import live_events
+
+logger = logging.getLogger(__name__)
 
 from orchestrator.models import (
     EdgeType,
@@ -117,6 +122,10 @@ class Stitcher:
         java_findings: list[JavaFinding],
         xslt_findings: list[XsltFinding],
     ) -> StitchedLineage:
+        logger.info("Stitching: %d java findings + %d xslt findings", len(java_findings), len(xslt_findings))
+        live_events.emit(live_events.STITCH_START, {
+            "java_findings": len(java_findings), "xslt_findings": len(xslt_findings),
+        })
         nodes: dict[str, LineageNode] = {}
         edges: set[tuple[str, str, EdgeType]] = set()
         edge_list: list[LineageEdge] = []
@@ -124,16 +133,28 @@ class Stitcher:
         def _add_node(node: LineageNode) -> None:
             if node.id not in nodes:
                 nodes[node.id] = node
+                logger.debug("  + Node [%s] id=%s label='%s'", node.node_type.value, node.id, node.label)
+                live_events.emit(live_events.NODE_ADDED, {
+                    "id": node.id, "label": node.label,
+                    "type": node.node_type.value,
+                    "properties": node.properties,
+                })
 
         def _add_edge(src: str, tgt: str, etype: EdgeType, props: dict | None = None) -> None:
             key = (src, tgt, etype)
             if key not in edges and src in nodes and tgt in nodes:
                 edges.add(key)
                 edge_list.append(LineageEdge(src, tgt, etype, props or {}))
+                logger.debug("  + Edge [%s] %s -> %s", etype.value, src, tgt)
+                live_events.emit(live_events.EDGE_ADDED, {
+                    "source": src, "target": tgt,
+                    "type": etype.value, "properties": props or {},
+                })
 
         # ===========================
         # Index Java findings
         # ===========================
+        logger.info("Phase 0: Indexing Java findings...")
 
         # Multi-key index: every canonical form -> list of findings
         java_field_index: dict[str, list[tuple[str, JavaFinding]]] = defaultdict(list)
@@ -177,9 +198,13 @@ class Stitcher:
                 key = f"{jf.class_name}::{jf.method_name}"
                 java_methods[key] = jf
 
+        logger.info("  Java index: %d field keys, %d classes, %d methods, %d unmarshal, %d xslt_refs",
+                     len(java_field_index), len(java_classes), len(java_methods), len(java_unmarshals), len(java_xslt_refs))
+
         # ===========================
         # Index XSLT findings
         # ===========================
+        logger.info("Phase 0: Indexing XSLT findings...")
         xslt_field_index: dict[str, list[tuple[str, XsltFinding]]] = defaultdict(list)
         xslt_templates: dict[str, XsltFinding] = {}
 
@@ -197,9 +222,13 @@ class Stitcher:
                     for key in _build_match_keys(field_name):
                         xslt_field_index[key].append((field_id, xf))
 
+        logger.info("  XSLT index: %d field keys, %d templates", len(xslt_field_index), len(xslt_templates))
+
         # =====================
         # Phase 1: Create nodes
         # =====================
+        logger.info("Phase 1: Creating nodes...")
+        live_events.emit(live_events.STITCH_PHASE, {"phase": 1, "name": "Creating nodes"})
 
         # Java class nodes
         for cls in java_classes:
@@ -371,9 +400,13 @@ class Stitcher:
                 called_id = f"xslt::{xf.field_target}"
                 _add_edge(tpl_id, called_id, EdgeType.CALLS)
 
+        logger.info("Phase 1 complete: %d nodes, %d edges so far", len(nodes), len(edge_list))
+
         # ==========================================
         # Phase 2: Java → XSLT execution sequence
         # ==========================================
+        logger.info("Phase 2: Java -> XSLT linking...")
+        live_events.emit(live_events.STITCH_PHASE, {"phase": 2, "name": "Java -> XSLT linking"})
 
         # Build XSLT file nodes from xslt_findings (group by source file)
         xslt_files_seen: dict[str, str] = {}  # file_path -> node_id
@@ -470,20 +503,34 @@ class Stitcher:
                     {"xslt_path": xslt_full_path, "ref_from": jf.class_name},
                 )
 
+        logger.info("Phase 2 complete: %d nodes, %d edges so far", len(nodes), len(edge_list))
+
         # ==========================================
         # Phase 3: Cross-language field stitching
         # ==========================================
+        logger.info("Phase 3: Cross-language field matching...")
+        live_events.emit(live_events.STITCH_PHASE, {"phase": 3, "name": "Cross-language field matching"})
 
         # Match XSLT fields to Java fields/constants/literals by canonical keys
+        matched_keys = 0
         for match_key, xslt_entries in xslt_field_index.items():
             if match_key in java_field_index:
+                matched_keys += 1
+                logger.debug("  Cross-lang match on key '%s': %d XSLT x %d Java entries",
+                             match_key, len(xslt_entries), len(java_field_index[match_key]))
+                live_events.emit(live_events.MATCH_FOUND, {
+                    "match_key": match_key,
+                    "xslt_count": len(xslt_entries),
+                    "java_count": len(java_field_index[match_key]),
+                })
                 for xslt_field_id, xf in xslt_entries:
                     for java_node_id, jf in java_field_index[match_key]:
-                        # Determine if cross-repo
                         is_cross_repo = (
                             xf.repo_name and jf.repo_name and xf.repo_name != jf.repo_name
                         )
                         edge_type = EdgeType.CROSS_REPO if is_cross_repo else EdgeType.DERIVED_FROM
+                        logger.debug("    Linking XSLT '%s' -> Java '%s' [%s] (key='%s')",
+                                     xslt_field_id, java_node_id, edge_type.value, match_key)
                         _add_edge(
                             xslt_field_id,
                             java_node_id,
@@ -495,6 +542,7 @@ class Stitcher:
                                 "java_repo": jf.repo_name,
                             },
                         )
+        logger.info("  Cross-language: %d canonical keys matched out of %d XSLT keys", matched_keys, len(xslt_field_index))
 
         # Cross-repo Java-to-Java: constant in repo A used in repo B
         # Group constants by bare name, link across repos
@@ -553,6 +601,10 @@ class Stitcher:
                         },
                     )
 
+        logger.info("Stitching complete: %d nodes, %d edges", len(nodes), len(edge_list))
+        live_events.emit(live_events.STITCH_COMPLETE, {
+            "nodes": len(nodes), "edges": len(edge_list),
+        })
         return StitchedLineage(
             nodes=list(nodes.values()),
             edges=edge_list,

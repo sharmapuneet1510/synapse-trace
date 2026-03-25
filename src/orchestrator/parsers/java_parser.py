@@ -3,10 +3,14 @@ constant references (e.g. MessageKey.N_EFFECTIVE_DATE), string literals, and XSL
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
+from orchestrator import live_events
 from orchestrator.models import JavaFinding, NodeMeta
+
+logger = logging.getLogger(__name__)
 
 
 class JavaParser:
@@ -47,6 +51,8 @@ class JavaParser:
         self._repo_name = repo_name
 
     def parse_file(self, file_path: Path) -> list[JavaFinding]:
+        logger.info("Parsing Java file: %s (repo=%s)", file_path, self._repo_name)
+        live_events.emit(live_events.PARSE_START, {"file": str(file_path), "parser": "java", "repo": self._repo_name})
         text = file_path.read_text(errors="replace")
         raw_lines = text.splitlines()
 
@@ -106,6 +112,7 @@ class JavaParser:
             # Unmarshal detection
             m = self._RE_UNMARSHAL.search(line)
             if m:
+                logger.debug("  Line %d: unmarshal -> %s found in %s.%s()", lineno, m.group(1), fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -124,6 +131,8 @@ class JavaParser:
                 target_var, target_field, source_var, source_field = (
                     m.group(1), m.group(2), m.group(3), m.group(4),
                 )
+                logger.debug("  Line %d: field_mapping %s.get%s() -> %s.set%s() in %s.%s()",
+                             lineno, source_var, source_field, target_var, target_field, fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -147,6 +156,7 @@ class JavaParser:
                     "Collections", "Arrays", "Optional",
                 ):
                     continue
+                logger.debug("  Line %d: constant_ref %s.%s found in %s.%s()", lineno, qualifier, const_name, fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -163,6 +173,7 @@ class JavaParser:
             # String literals that look like field keys: "N_EFFECTIVE_DATE", "COUNTERPARTY_ID"
             for m in self._RE_STRING_KEY.finditer(line_with_strings):
                 key_value = m.group(1)
+                logger.debug("  Line %d: string_literal \"%s\" found in %s.%s()", lineno, key_value, fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -179,8 +190,8 @@ class JavaParser:
             # XSLT file references: "trade_transform.xsl", StreamSource("foo.xsl")
             for m in self._RE_XSLT_REF.finditer(line_with_strings):
                 xslt_path = m.group(1)
-                # Extract just the filename for matching
-                xslt_name = Path(xslt_path).stem  # "trade_transform" from "path/to/trade_transform.xsl"
+                xslt_name = Path(xslt_path).stem
+                logger.debug("  Line %d: xslt_ref '%s' (stem='%s') found in %s.%s()", lineno, xslt_path, xslt_name, fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -188,7 +199,7 @@ class JavaParser:
                         field_name=xslt_name,
                         finding_type="xslt_ref",
                         target_class=None,
-                        target_field=xslt_path,  # full path string for resolution
+                        target_field=xslt_path,
                         meta=meta,
                         repo_name=self._repo_name,
                     )
@@ -216,6 +227,7 @@ class JavaParser:
                     continue
                 if obj_name in ("System", "log", "logger", "LOG", "LOGGER"):
                     continue
+                logger.debug("  Line %d: method_call %s.%s() found in %s.%s()", lineno, obj_name, method_name, fqcn, current_method)
                 findings.append(
                     JavaFinding(
                         class_name=fqcn,
@@ -229,10 +241,19 @@ class JavaParser:
                     )
                 )
 
+        logger.info("  Parsed %s: %d findings", file_path.name, len(findings))
+        live_events.emit(live_events.PARSE_COMPLETE, {
+            "file": str(file_path), "parser": "java",
+            "findings": len(findings), "repo": self._repo_name,
+        })
         return findings
 
     def parse_directory(self, dir_path: Path) -> list[JavaFinding]:
+        logger.info("Parsing Java directory: %s", dir_path)
         findings: list[JavaFinding] = []
-        for java_file in sorted(dir_path.rglob("*.java")):
+        java_files = sorted(dir_path.rglob("*.java"))
+        logger.info("  Found %d Java files in %s", len(java_files), dir_path)
+        for java_file in java_files:
             findings.extend(self.parse_file(java_file))
+        logger.info("  Total Java findings from %s: %d", dir_path, len(findings))
         return findings

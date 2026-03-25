@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from orchestrator.models import RepoConfig, StitchedLineage
 from orchestrator.parsers.java_parser import JavaParser
