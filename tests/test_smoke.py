@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from orchestrator.models import RepoConfig
 from orchestrator.parsers.java_parser import JavaParser
 from orchestrator.parsers.xslt_parser import XsltParser
+from orchestrator.quick_trace import trace_project, trace_files, supported_extensions
 from orchestrator.scanner import ModuleScanner
 from orchestrator.stitcher import Stitcher, _build_match_keys
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
@@ -18,6 +19,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "sample"
 MULTI_REPO = Path(__file__).parent / "fixtures" / "multi-repo"
 MIXED_MODULE = Path(__file__).parent / "fixtures" / "mixed-module"
 MULTI_PROJECT = Path(__file__).parent / "fixtures" / "multi-project"
+APP_WITH_LIBS = Path(__file__).parent / "fixtures" / "app-with-libs"
 
 
 # ---- Field variation matching tests ----
@@ -410,6 +412,66 @@ def test_multi_project_full_pipeline(tmp_path):
     print(f"    Repos in graph: {repos_in_graph}")
 
 
+# ---- trace_project: main + library dependency resolution ----
+
+def test_trace_project_resolves_libs():
+    """trace_project should scan main, find unresolved refs, then search libs."""
+    result = trace_project(
+        main=APP_WITH_LIBS / "main-app",
+        libs=[APP_WITH_LIBS / "lib-fields", APP_WITH_LIBS / "lib-transform"],
+    )
+
+    # Should resolve MessageKey and TransformHelper from libraries
+    assert "MessageKey" in result.resolved_from_libs, (
+        f"Should resolve MessageKey, resolved: {result.resolved_from_libs}"
+    )
+    assert "TransformHelper" in result.resolved_from_libs
+    assert result.resolved_from_libs["MessageKey"] == "lib-fields"
+    assert result.resolved_from_libs["TransformHelper"] == "lib-transform"
+    assert len(result.unresolved_classes) == 0, f"Nothing should be unresolved: {result.unresolved_classes}"
+
+    # Graph should have nodes from both main and library
+    assert result.node_count > 0
+    assert result.edge_count > 0
+
+    # Cross-repo edges should link main -> lib
+    cross = result.edges_by_type("CROSS_REPO")
+    assert len(cross) > 0, "Should have CROSS_REPO edges between main and libs"
+
+    # LOADS_XSLT edges from Java -> XSLT within main
+    loads = result.edges_by_type("LOADS_XSLT")
+    assert len(loads) > 0, "Should have LOADS_XSLT edges"
+
+
+def test_trace_project_without_libs():
+    """trace_project without libs should still work, just with unresolved refs."""
+    result = trace_project(main=APP_WITH_LIBS / "main-app")
+
+    assert result.node_count > 0
+    assert "MessageKey" in result.unresolved_classes
+    assert "TransformHelper" in result.unresolved_classes
+    assert len(result.resolved_from_libs) == 0
+
+
+def test_parser_registry():
+    """Parser registry should have built-in Java and XSLT parsers."""
+    exts = supported_extensions()
+    assert ".java" in exts
+    assert ".xsl" in exts
+    assert ".xslt" in exts
+
+
+def test_trace_files_auto_dispatch():
+    """trace_files should auto-dispatch to correct parser by file extension."""
+    result = trace_files(
+        java_files=[APP_WITH_LIBS / "main-app" / "trade-module" / "src" / "main" / "java" / "TradeService.java"],
+        xslt_files=[APP_WITH_LIBS / "main-app" / "trade-module" / "src" / "main" / "resources" / "xslt" / "trade_mapping.xsl"],
+    )
+    assert result.node_count > 0
+    assert len(result.java_findings) > 0
+    assert len(result.xslt_findings) > 0
+
+
 if __name__ == "__main__":
     print("Running smoke tests...")
 
@@ -461,5 +523,17 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as td:
         test_multi_project_full_pipeline(Path(td))
     print("  Multi-project full pipeline: PASS")
+
+    test_trace_project_resolves_libs()
+    print("  trace_project resolves libs: PASS")
+
+    test_trace_project_without_libs()
+    print("  trace_project without libs: PASS")
+
+    test_parser_registry()
+    print("  Parser registry: PASS")
+
+    test_trace_files_auto_dispatch()
+    print("  trace_files auto dispatch: PASS")
 
     print("\nAll smoke tests passed!")
