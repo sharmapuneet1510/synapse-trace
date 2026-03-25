@@ -48,6 +48,7 @@ from orchestrator.parsers.xslt_parser import XsltParser
 from orchestrator.scanner import ModuleScanner
 from orchestrator.stitcher import Stitcher, _build_match_keys
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
+from orchestrator.storage.neo4j_adapter import Neo4jGraphProvider
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +187,84 @@ class TraceResult:
         provider.persist()
         print(f"HTML written to {path.parent}")
         return path
+
+    # ── Neo4j export ─────────────────────────────────────────────────
+
+    def _neo4j_provider(self) -> Neo4jGraphProvider:
+        """Build a Neo4j provider loaded with this result's lineage."""
+        provider = Neo4jGraphProvider()
+        provider.ingest_lineage(self.lineage)
+        return provider
+
+    def to_cypher(self, path: Union[str, Path] = None) -> str:
+        """Generate Cypher MERGE statements for loading into Neo4j.
+
+        Args:
+            path: If given, write the Cypher to this file. Otherwise just return it.
+
+        Returns:
+            Cypher string with all MERGE statements.
+
+        Usage:
+            # Get Cypher as string
+            cypher = result.to_cypher()
+
+            # Write to file
+            result.to_cypher("output/lineage.cypher")
+
+            # Execute in Neo4j browser: copy-paste or :source lineage.cypher
+        """
+        cypher = self._neo4j_provider().generate_cypher()
+        if path:
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(cypher)
+            print(f"Cypher written to {path} ({len(self.lineage.nodes)} nodes, {len(self.lineage.edges)} edges)")
+        return cypher
+
+    def to_neo4j_json(self, path: Union[str, Path]) -> Path:
+        """Export Node-Link JSON compatible with Neo4j APOC apoc.import.json.
+
+        Load in Neo4j with:
+            CALL apoc.import.json("file:///lineage.json")
+
+        Args:
+            path: Output file path.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = self._neo4j_provider().export_node_link_json()
+        path.write_text(json.dumps(data, indent=2))
+        print(f"Neo4j JSON written to {path} ({len(data['nodes'])} nodes, {len(data['links'])} edges)")
+        return path
+
+    def to_neo4j(self, uri: str, user: str, password: str) -> None:
+        """Push lineage directly to a Neo4j instance via the driver.
+
+        Requires: pip install neo4j
+
+        Args:
+            uri:      Bolt URI, e.g. "bolt://localhost:7687"
+            user:     Neo4j username
+            password: Neo4j password
+        """
+        try:
+            from neo4j import GraphDatabase  # type: ignore[import-untyped]
+        except ImportError:
+            raise ImportError(
+                "neo4j driver not installed. Run: pip install neo4j\n"
+                "Or use to_cypher() / to_neo4j_json() for offline loading."
+            )
+
+        cypher = self.to_cypher()
+        driver = GraphDatabase.driver(uri, auth=(user, password))
+        with driver.session() as session:
+            for statement in cypher.split(";\n"):
+                statement = statement.strip()
+                if statement:
+                    session.run(statement)
+        driver.close()
+        print(f"Pushed to Neo4j {uri}: {len(self.lineage.nodes)} nodes, {len(self.lineage.edges)} edges")
 
     def filter(self, *targets: str, max_depth: int = 15) -> "TraceResult":
         """Return a new TraceResult containing only the subgraph for the given targets.
