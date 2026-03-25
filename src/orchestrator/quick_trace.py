@@ -5,23 +5,31 @@ references to library classes/constants, then searches library projects for
 those references. The graph starts from the main project and drills down
 into every library.
 
-Parsers are pluggable via a file-extension registry. To add a new parser
-(e.g. for .groovy files), register it before calling trace:
+Use `targets` to trace only specific fields, methods, or variables:
+
+    result = trace_project(
+        main="/code/my-app",
+        libs=["/code/lib-fields"],
+        targets=["N_EFFECTIVE_DATE"],       # only this field's lineage
+    )
+
+    # Or trace a method
+    result = trace_project(main="/code/my-app", targets=["processIncoming"])
+
+    # Or trace multiple things at once
+    result = trace_project(
+        main="/code/my-app",
+        targets=["N_TRADE_ID", "N_EFFECTIVE_DATE", "processSettlement"],
+    )
+
+    # Or filter after the fact
+    full = trace_project(main="/code/my-app", libs=[...])
+    subset = full.filter("N_TRADE_ID")
+
+Parsers are pluggable via a file-extension registry:
 
     from orchestrator.quick_trace import register_parser
     register_parser(".groovy", MyGroovyParser)
-
-Usage:
-
-    from orchestrator.quick_trace import trace_project
-
-    result = trace_project(
-        main="/code/my-app",                  # multi-module main project
-        libs=["/code/lib-fields", "/code/lib-transform"],  # library jars/sources
-    )
-
-    result.print_summary()
-    result.to_html("output/lineage.html")
 """
 
 from __future__ import annotations
@@ -32,11 +40,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, Union
 
-from orchestrator.models import JavaFinding, StitchedLineage, XsltFinding
+from orchestrator.models import (
+    JavaFinding, LineageEdge, LineageNode, StitchedLineage, XsltFinding,
+)
 from orchestrator.parsers.java_parser import JavaParser
 from orchestrator.parsers.xslt_parser import XsltParser
 from orchestrator.scanner import ModuleScanner
-from orchestrator.stitcher import Stitcher
+from orchestrator.stitcher import Stitcher, _build_match_keys
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
 
 
@@ -177,6 +187,141 @@ class TraceResult:
         print(f"HTML written to {path.parent}")
         return path
 
+    def filter(self, *targets: str, max_depth: int = 15) -> "TraceResult":
+        """Return a new TraceResult containing only the subgraph for the given targets.
+
+        Targets can be field names, method names, class names, or variable names.
+        Matches against node IDs, labels, and properties using fuzzy matching.
+
+        Args:
+            targets:   One or more names to trace, e.g. "N_EFFECTIVE_DATE", "processIncoming"
+            max_depth: Max BFS hops from seed nodes (default 15)
+
+        Returns:
+            New TraceResult with filtered lineage.
+        """
+        filtered = _filter_lineage(self.lineage, list(targets), max_depth=max_depth)
+        return TraceResult(
+            lineage=filtered,
+            java_findings=self.java_findings,
+            xslt_findings=self.xslt_findings,
+            unresolved_classes=self.unresolved_classes,
+            resolved_from_libs=self.resolved_from_libs,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Subgraph filtering
+# ---------------------------------------------------------------------------
+
+
+def _match_node(node: LineageNode, targets: list[str], target_keys: set[str]) -> bool:
+    """Check if a node matches any of the target names.
+
+    Matches against:
+      - Node label (exact or contains)
+      - Node ID segments
+      - Properties: bare_name, output_element, xpath, qualifier
+      - Canonical match keys (same fuzzy matching used by the stitcher)
+    """
+    # Collect all searchable text from this node
+    searchable: set[str] = set()
+    searchable.add(node.label.lower().strip('"'))
+    searchable.add(node.id.lower())
+
+    # ID segments: "java::method::com.acme.TradeService::processIncoming" -> each part
+    for seg in node.id.split("::"):
+        searchable.add(seg.lower())
+        # Also the simple class name: com.acme.TradeService -> TradeService
+        if "." in seg:
+            searchable.add(seg.rsplit(".", 1)[-1].lower())
+
+    # Properties
+    for prop_key in ("bare_name", "output_element", "xpath", "qualifier", "owner"):
+        val = node.properties.get(prop_key, "")
+        if val:
+            searchable.add(str(val).lower().strip('"'))
+
+    # Check: does any target appear in the node's searchable text?
+    for t in targets:
+        t_lower = t.lower()
+        # Exact match on any searchable value
+        if t_lower in searchable:
+            return True
+        # Substring match on label or ID
+        if t_lower in node.label.lower() or t_lower in node.id.lower():
+            return True
+
+    # Check canonical match keys overlap
+    node_keys: set[str] = set()
+    for s in searchable:
+        node_keys |= _build_match_keys(s)
+
+    return bool(node_keys & target_keys)
+
+
+def _filter_lineage(
+    lineage: StitchedLineage,
+    targets: list[str],
+    max_depth: int = 15,
+    type_filter: set[str] | None = None,
+) -> StitchedLineage:
+    """Extract the subgraph connected to the target names.
+
+    1. Find all seed nodes that match any target
+    2. BFS walk from seeds to collect connected nodes
+    3. Return a new StitchedLineage with only those nodes/edges
+    """
+    if not targets:
+        return lineage
+
+    # Build canonical keys for all targets for fuzzy matching
+    target_keys: set[str] = set()
+    for t in targets:
+        target_keys |= _build_match_keys(t)
+
+    # Step 1: Find seed nodes
+    node_by_id: dict[str, LineageNode] = {n.id: n for n in lineage.nodes}
+    seed_ids: set[str] = set()
+
+    for node in lineage.nodes:
+        # Apply type filter if specified
+        if type_filter and node.node_type.value not in type_filter:
+            continue
+        if _match_node(node, targets, target_keys):
+            seed_ids.add(node.id)
+
+    if not seed_ids:
+        print(f"  Warning: no nodes matched targets {targets}")
+        return StitchedLineage(nodes=[], edges=[])
+
+    # Step 2: Build adjacency (undirected) and BFS from seeds
+    adj: dict[str, set[str]] = defaultdict(set)
+    for edge in lineage.edges:
+        adj[edge.source_id].add(edge.target_id)
+        adj[edge.target_id].add(edge.source_id)
+
+    reachable: set[str] = set()
+    queue: list[tuple[str, int]] = [(sid, 0) for sid in seed_ids]
+
+    while queue:
+        nid, depth = queue.pop(0)
+        if nid in reachable or depth > max_depth:
+            continue
+        reachable.add(nid)
+        for neighbor in adj.get(nid, []):
+            if neighbor not in reachable:
+                queue.append((neighbor, depth + 1))
+
+    # Step 3: Build filtered lineage
+    filtered_nodes = [n for n in lineage.nodes if n.id in reachable]
+    filtered_edges = [
+        e for e in lineage.edges
+        if e.source_id in reachable and e.target_id in reachable
+    ]
+
+    return StitchedLineage(nodes=filtered_nodes, edges=filtered_edges)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -286,6 +431,7 @@ def trace_project(
     libs: list[Union[str, Path]] = None,
     main_name: str = "",
     lib_names: list[str] = None,
+    targets: list[str] = None,
 ) -> TraceResult:
     """Trace lineage starting from a main project, drilling into library projects.
 
@@ -296,12 +442,14 @@ def trace_project(
       4. Search each library project for those classes
       5. Parse only the matching library files
       6. Stitch everything into one graph
+      7. If targets given, filter to only the subgraph for those targets
 
     Args:
         main:       Path to the main multi-module project root
         libs:       List of paths to library project roots
         main_name:  Name for the main project (default: directory name)
         lib_names:  Names for each library (default: directory names)
+        targets:    Field/method/class names to trace (None = trace everything)
 
     Returns:
         TraceResult with full lineage and resolution metadata.
@@ -371,12 +519,195 @@ def trace_project(
     # ── Step 4: Stitch ───────────────────────────────────────────────────
     lineage = Stitcher().stitch(all_java, all_xslt)
 
+    # ── Step 5: Filter to targets (if specified) ─────────────────────────
+    if targets:
+        print(f"  Filtering to targets: {', '.join(targets)}")
+        lineage = _filter_lineage(lineage, targets)
+        print(f"  Filtered: {len(lineage.nodes)} nodes, {len(lineage.edges)} edges")
+
     return TraceResult(
         lineage=lineage,
         java_findings=all_java,
         xslt_findings=all_xslt,
         unresolved_classes=still_unresolved,
         resolved_from_libs=resolved_from_libs,
+    )
+
+
+def trace(
+    name: str,
+    type: str = "any",
+    search_type: str = "like",
+    project: Union[str, Path, list] = None,
+    libs: list[Union[str, Path]] = None,
+) -> TraceResult:
+    """Single entry point — trace a specific field, method, or class by name.
+
+    Args:
+        name:        What to search for, e.g. "N_EFFECTIVE_DATE", "processIncoming", "TradeService"
+        type:        Filter by kind: "variable", "method", "class", "field", or "any" (default)
+        search_type: "like" (fuzzy/substring, default) or "exact" (strict match)
+        project:     Main project path(s). Can be a single path or list of paths.
+        libs:        Library project paths for dependency resolution.
+
+    Returns:
+        TraceResult with only the lineage for the matched target.
+
+    Examples:
+        # Trace a field across main project + libraries
+        trace("N_EFFECTIVE_DATE", type="variable", project="/code/my-app", libs=["/code/lib-fields"])
+
+        # Trace a method
+        trace("processIncoming", type="method", project="/code/my-app")
+
+        # Trace a class
+        trace("TradeService", type="class", project="/code/my-app")
+
+        # Fuzzy match (default) — finds N_EFFECTIVE_DATE, effectiveDate, etc.
+        trace("effective_date", search_type="like", project="/code/my-app")
+
+        # Exact match — only N_EFFECTIVE_DATE
+        trace("N_EFFECTIVE_DATE", search_type="exact", project="/code/my-app")
+
+        # Multiple projects as main
+        trace("N_TRADE_ID", project=["/code/app-a", "/code/app-b"], libs=["/code/lib"])
+    """
+    # Normalize project to list
+    if project is None:
+        project = ["."]
+    elif isinstance(project, (str, Path)):
+        project = [project]
+    project_paths = [Path(p) for p in project]
+    libs = [Path(p) for p in (libs or [])]
+
+    # Step 1: Scan and parse all projects + libs (full graph first)
+    scanner = ModuleScanner()
+    all_java: list[JavaFinding] = []
+    all_xslt: list[XsltFinding] = []
+    resolved_from_libs: dict[str, str] = {}
+    still_unresolved: set[str] = set()
+
+    for proj_path in project_paths:
+        proj_name = proj_path.name
+        proj = scanner.scan_project(proj_path, name=proj_name)
+        print(f"Project: {proj.summary()}")
+
+        for mod in proj.modules:
+            for jf in mod.java_files:
+                _parse_file_auto(jf, mod.name, all_java, all_xslt)
+            for xf in mod.xslt_files:
+                _parse_file_auto(xf, mod.name, all_java, all_xslt)
+
+    # Resolve library dependencies
+    if libs:
+        defined_classes = _find_classes_defined(all_java)
+        unresolved = _find_unresolved_refs(all_java, defined_classes)
+        still_unresolved = set(unresolved)
+
+        for lib_path in libs:
+            lib_name = lib_path.name
+            matching_files, found_classes = _search_lib_for_classes(
+                lib_path, lib_name, still_unresolved
+            )
+            if found_classes:
+                for cls in found_classes:
+                    resolved_from_libs[cls] = lib_name
+                still_unresolved -= found_classes
+                for lf in matching_files:
+                    _parse_file_auto(lf, lib_name, all_java, all_xslt)
+
+    # Step 2: Stitch full graph
+    lineage = Stitcher().stitch(all_java, all_xslt)
+
+    # Step 3: Filter by type and search_type
+    targets = [name]
+
+    # Type-based pre-filter: narrow seed nodes by node type
+    type_filter = _TYPE_MAP.get(type.lower(), None)
+
+    if search_type.lower() == "exact":
+        filtered = _filter_lineage_exact(lineage, name, type_filter=type_filter)
+    else:
+        filtered = _filter_lineage(lineage, targets, type_filter=type_filter)
+
+    print(f"  trace(\"{name}\", type=\"{type}\", search_type=\"{search_type}\")")
+    print(f"  Result: {len(filtered.nodes)} nodes, {len(filtered.edges)} edges")
+
+    return TraceResult(
+        lineage=filtered,
+        java_findings=all_java,
+        xslt_findings=all_xslt,
+        unresolved_classes=still_unresolved,
+        resolved_from_libs=resolved_from_libs,
+    )
+
+
+# Type name -> set of NodeType values that match
+_TYPE_MAP: dict[str, set[str]] = {
+    "variable": {"JAVA_FIELD", "JAVA_CONSTANT", "XSLT_FIELD"},
+    "field": {"JAVA_FIELD", "JAVA_CONSTANT", "XSLT_FIELD"},
+    "method": {"JAVA_METHOD"},
+    "class": {"JAVA_CLASS", "DTO"},
+    "xslt": {"XSLT_FILE", "XSLT_TEMPLATE", "XSLT_FIELD"},
+    "any": None,  # no filter
+}
+
+
+def _filter_lineage_exact(
+    lineage: StitchedLineage,
+    name: str,
+    type_filter: set[str] | None = None,
+    max_depth: int = 15,
+) -> StitchedLineage:
+    """Filter lineage with exact name matching (no fuzzy canonical forms)."""
+    node_by_id: dict[str, LineageNode] = {n.id: n for n in lineage.nodes}
+    seed_ids: set[str] = set()
+    name_lower = name.lower()
+
+    for node in lineage.nodes:
+        # Type filter
+        if type_filter and node.node_type.value not in type_filter:
+            continue
+
+        # Exact match on label, bare_name, or ID segment
+        searchable = {
+            node.label.lower().strip('"'),
+            node.properties.get("bare_name", "").lower(),
+            node.properties.get("output_element", "").lower(),
+        }
+        # Last segment of ID
+        last_seg = node.id.rsplit("::", 1)[-1].lower()
+        if "." in last_seg:
+            searchable.add(last_seg.rsplit(".", 1)[-1])
+        searchable.add(last_seg)
+
+        if name_lower in searchable:
+            seed_ids.add(node.id)
+
+    if not seed_ids:
+        print(f"  Warning: no exact match for \"{name}\"")
+        return StitchedLineage(nodes=[], edges=[])
+
+    # BFS from seeds
+    adj: dict[str, set[str]] = defaultdict(set)
+    for edge in lineage.edges:
+        adj[edge.source_id].add(edge.target_id)
+        adj[edge.target_id].add(edge.source_id)
+
+    reachable: set[str] = set()
+    queue = [(sid, 0) for sid in seed_ids]
+    while queue:
+        nid, depth = queue.pop(0)
+        if nid in reachable or depth > max_depth:
+            continue
+        reachable.add(nid)
+        for nb in adj.get(nid, []):
+            if nb not in reachable:
+                queue.append((nb, depth + 1))
+
+    return StitchedLineage(
+        nodes=[n for n in lineage.nodes if n.id in reachable],
+        edges=[e for e in lineage.edges if e.source_id in reachable and e.target_id in reachable],
     )
 
 

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from orchestrator.models import RepoConfig
 from orchestrator.parsers.java_parser import JavaParser
 from orchestrator.parsers.xslt_parser import XsltParser
-from orchestrator.quick_trace import trace_project, trace_files, supported_extensions
+from orchestrator.quick_trace import trace, trace_project, trace_files, supported_extensions
 from orchestrator.scanner import ModuleScanner
 from orchestrator.stitcher import Stitcher, _build_match_keys
 from orchestrator.storage.local_graph_pyvis import PyVisGraphProvider
@@ -472,6 +472,77 @@ def test_trace_files_auto_dispatch():
     assert len(result.xslt_findings) > 0
 
 
+# ---- trace() with type/search_type ----
+
+def test_trace_variable_like():
+    """trace() should find a variable with fuzzy matching and drill into libs."""
+    r = trace("N_EFFECTIVE_DATE", type="variable",
+              project=APP_WITH_LIBS / "main-app",
+              libs=[APP_WITH_LIBS / "lib-fields"])
+    assert r.node_count > 0
+    # Should find the constant in main and the literal in lib
+    const_nodes = r.nodes_by_type("JAVA_CONSTANT")
+    assert any("N_EFFECTIVE_DATE" in n.id for n in const_nodes), (
+        f"Should find N_EFFECTIVE_DATE constant, got {[n.id for n in const_nodes]}"
+    )
+    # Should have cross-repo link to lib
+    cross = r.edges_by_type("CROSS_REPO")
+    assert len(cross) > 0, "Should drill into lib-fields"
+
+
+def test_trace_variable_exact():
+    """trace() with search_type='exact' should match strictly."""
+    r = trace("N_EFFECTIVE_DATE", type="variable", search_type="exact",
+              project=APP_WITH_LIBS / "main-app",
+              libs=[APP_WITH_LIBS / "lib-fields"])
+    assert r.node_count > 0
+
+
+def test_trace_method():
+    """trace() should isolate a single method's lineage."""
+    r = trace("processIncoming", type="method", search_type="exact",
+              project=APP_WITH_LIBS / "main-app")
+    assert r.node_count > 0
+    # The seed should be the method node
+    method_nodes = r.nodes_by_type("JAVA_METHOD")
+    assert any("processIncoming" in n.id for n in method_nodes)
+
+
+def test_trace_class():
+    """trace() should isolate a class and its connected graph."""
+    r = trace("TradeService", type="class",
+              project=APP_WITH_LIBS / "main-app")
+    assert r.node_count > 0
+    class_nodes = r.nodes_by_type("JAVA_CLASS")
+    assert any("TradeService" in n.id for n in class_nodes)
+
+
+def test_trace_fuzzy_like():
+    """trace() with like search should match canonical field variations."""
+    r = trace("effective_date", type="variable", search_type="like",
+              project=APP_WITH_LIBS / "main-app",
+              libs=[APP_WITH_LIBS / "lib-fields"])
+    assert r.node_count > 0
+    # Should find N_EFFECTIVE_DATE via fuzzy matching (effective_date -> n_effective_date)
+    all_labels = [n.label for n in r.nodes]
+    assert any("EFFECTIVE_DATE" in lbl.upper() for lbl in all_labels), (
+        f"Fuzzy match should find EFFECTIVE_DATE, got labels: {all_labels}"
+    )
+
+
+def test_trace_result_filter():
+    """TraceResult.filter() should post-filter an existing result."""
+    full = trace_project(
+        main=APP_WITH_LIBS / "main-app",
+        libs=[APP_WITH_LIBS / "lib-fields"],
+    )
+    subset = full.filter("N_TRADE_ID")
+    assert subset.node_count < full.node_count, "Filtered should have fewer nodes"
+    assert subset.node_count > 0
+    # Should contain nodes related to N_TRADE_ID
+    assert any("TRADE_ID" in n.id.upper() for n in subset.nodes)
+
+
 if __name__ == "__main__":
     print("Running smoke tests...")
 
@@ -535,5 +606,23 @@ if __name__ == "__main__":
 
     test_trace_files_auto_dispatch()
     print("  trace_files auto dispatch: PASS")
+
+    test_trace_variable_like()
+    print("  trace variable (like): PASS")
+
+    test_trace_variable_exact()
+    print("  trace variable (exact): PASS")
+
+    test_trace_method()
+    print("  trace method: PASS")
+
+    test_trace_class()
+    print("  trace class: PASS")
+
+    test_trace_fuzzy_like()
+    print("  trace fuzzy like: PASS")
+
+    test_trace_result_filter()
+    print("  TraceResult.filter(): PASS")
 
     print("\nAll smoke tests passed!")
