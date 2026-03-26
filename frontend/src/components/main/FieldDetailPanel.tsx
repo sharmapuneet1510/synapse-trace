@@ -6,6 +6,7 @@ import XsltLogicBlock from './XsltLogicBlock';
 import DependencyList from './DependencyList';
 import InputXPathsTable from './InputXPathsTable';
 import AssetClassSelector from './AssetClassSelector';
+import TracePanel from './TracePanel';
 
 const TRANSLATION_TABS = [
   { key: 'business_derivation', label: 'Derivation' },
@@ -211,6 +212,12 @@ export default function FieldDetailPanel() {
 
           {/* XPaths Table */}
           <InputXPathsTable xpaths={detail.input_xpaths} />
+
+          {/* Variable Trace Graph */}
+          <TracePanel
+            defaultVariable={detail.field_name}
+            defaultJurisdiction={detail.jurisdiction_id}
+          />
         </div>
       )}
     </div>

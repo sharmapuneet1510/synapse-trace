@@ -17,7 +17,8 @@ Interactive docs: `http://localhost:8000/docs` (Swagger UI)
 7. [Dashboard](#dashboard)
 8. [Chat](#chat)
 9. [LLM](#llm)
-10. [Using the Orchestrator Directly](#using-the-orchestrator-directly)
+10. [Trace](#trace)
+11. [Using the Orchestrator Directly](#using-the-orchestrator-directly)
 11. [Configuration via jurisdiction.json](#configuration-via-jurisdictionjson)
 12. [Connecting Your Own LLM](#connecting-your-own-llm)
 13. [Database: Switching from SQLite to MSSQL](#database-switching-from-sqlite-to-mssql)
@@ -743,6 +744,91 @@ Generate a business description for a field. Currently returns a stub response.
   "description": "The field N_EFFECTIVE_DATE serves as a key data point in HKMA regulatory submissions. It captures essential trade information required for compliance reporting under the jurisdiction's regulatory framework.\n\nBusiness Impact: This field directly affects the accuracy of regulatory submissions and must be populated correctly to avoid reporting discrepancies."
 }
 ```
+
+---
+
+## Trace
+
+### POST /api/trace/variable
+
+Trace a variable through the parsed lineage graph, returning the connected subgraph of all nodes and edges related to that variable (and its canonical name variations).
+
+**Request Body:** `TraceRequest`
+
+| Field                  | Type            | Required | Default | Description                                                        |
+|------------------------|-----------------|----------|---------|--------------------------------------------------------------------|
+| variable_name          | string          | yes      |         | The field/variable name to trace (e.g. `N_EFFECTIVE_DATE`)         |
+| jurisdiction_id        | string          | yes      |         | Jurisdiction to trace within (e.g. `hkma`)                         |
+| additional_variations  | string[]        | no       | `[]`    | Extra name aliases to include in the search (e.g. `effectiveDate`) |
+| max_depth              | int             | no       | `15`    | Maximum BFS hops from seed nodes                                   |
+
+**Example Request:**
+
+```json
+{
+  "variable_name": "N_EFFECTIVE_DATE",
+  "jurisdiction_id": "hkma",
+  "additional_variations": ["effectiveDate", "EFFECTIVE_DT"],
+  "max_depth": 15
+}
+```
+
+**Response:** `TraceResponse`
+
+```json
+{
+  "variable_name": "N_EFFECTIVE_DATE",
+  "jurisdiction_id": "hkma",
+  "variations_searched": [
+    "N_EFFECTIVE_DATE", "n_effective_date", "nEffectiveDate",
+    "effectiveDate", "N_EFFECTIVE_DT", "EFFECTIVE_DATE", "effectiveDate", "EFFECTIVE_DT"
+  ],
+  "nodes": [
+    {
+      "id": "java::constant::com.bank.MessageKey::N_EFFECTIVE_DATE",
+      "label": "N_EFFECTIVE_DATE",
+      "node_type": "JAVA_CONSTANT",
+      "file_path": "/repos/hkma-reporting/src/main/java/MessageKey.java",
+      "line_number": 23,
+      "code_snippet": "public static final String N_EFFECTIVE_DATE = \"N_EFFECTIVE_DATE\";",
+      "properties": {}
+    },
+    {
+      "id": "xslt::field::trade.xsl::effectiveDate",
+      "label": "effectiveDate",
+      "node_type": "XSLT_FIELD",
+      "file_path": "/repos/hkma-reporting/src/main/resources/xslt/trade.xsl",
+      "line_number": 42,
+      "code_snippet": "<xsl:value-of select=\"order/effectiveDate\"/>",
+      "properties": {}
+    }
+  ],
+  "edges": [
+    {
+      "source": "java::method::com.bank.TradeMapper::mapFields",
+      "target": "java::constant::com.bank.MessageKey::N_EFFECTIVE_DATE",
+      "type": "DERIVED_FROM",
+      "properties": {}
+    }
+  ],
+  "node_count": 8,
+  "edge_count": 6,
+  "parse_status": "ready"
+}
+```
+
+**Node types:** `JAVA_CLASS`, `JAVA_METHOD`, `JAVA_FIELD`, `JAVA_CONSTANT`, `DTO`, `XSLT_FILE`, `XSLT_TEMPLATE`, `XSLT_FIELD`
+
+**Edge types:** `CALLS`, `DERIVED_FROM`, `TRANSFORMS`, `LOADS_XSLT`, `CROSS_REPO`, `UNMARSHALS_TO`
+
+**Notes:**
+- The service automatically generates all canonical name forms for the input variable using `_build_match_keys()` — including camelCase, UPPER_SNAKE_CASE, with/without common prefixes (`N_`, `S_`, `B_`, `D_`). You do not need to provide these variations manually.
+- `additional_variations` can be used for domain-specific aliases not derivable from naming conventions.
+- `parse_status` will be `"not_parsed"` if no parse has been run for the jurisdiction yet.
+- If `node_count` is 0 with `parse_status: "ready"`, the variable was not found in the lineage graph for that jurisdiction.
+
+**Errors:**
+- Returns `node_count: 0` when no matching nodes are found (not a 404).
 
 ---
 

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS, JURISDICTION_JSON
 from .database import init_db
-from .routers import chat, dashboard, fields, jurisdictions, llm, parse, translation, xpath
+from .routers import chat, dashboard, fields, jurisdictions, llm, parse, trace, translation, xpath
 from .services import jurisdiction_service
 
 
@@ -49,6 +49,7 @@ app.include_router(parse.router)
 app.include_router(dashboard.router)
 app.include_router(chat.router)
 app.include_router(llm.router)
+app.include_router(trace.router)
 
 
 @app.get("/api/health")

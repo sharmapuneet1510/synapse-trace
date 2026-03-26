@@ -27,9 +27,14 @@ cat  output/lineage_graph.json   # Node-Link JSON (Neo4j compatible)
 
 | Doc | Description |
 |-----|-------------|
+| [Frontend Guide](docs/frontend-guide.md) | Using the web UI — Explorer, Business/Technical views, Trace Graph, Chat, Dashboard |
+| [Trace Examples](docs/trace-examples.md) | Variable trace REST examples, Python direct, TypeScript hooks, graph interpretation |
+| [Live Events](docs/live-events.md) | SSE endpoint, EventBus, browser/React/Python/curl consumption patterns |
 | [Usage Guide](docs/usage-guide.md) | CLI options, single-repo, multi-repo, config file format |
 | [Parser Output](docs/parser-output.md) | What the parser produces — finding types, node/edge schemas, JSON format |
 | [Architecture](docs/architecture.md) | Plugin system, provider interface, how stitching works |
+| [API Documentation](API_DOCUMENTATION.md) | All REST endpoints with request/response examples |
+| [Project Summary](PROJECT_SUMMARY.md) | Full system overview — tech stack, data flow, extension guide |
 
 ## Project Structure
 

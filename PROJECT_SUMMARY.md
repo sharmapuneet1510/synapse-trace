@@ -64,6 +64,7 @@ synapse-trace/
         dashboard.py             # GET /api/dashboard/stats, /nodes, /edges, /live (SSE)
         chat.py                  # CRUD for chat sessions and messages
         llm.py                   # POST /api/llm/describe
+        trace.py                 # POST /api/trace/variable (variable lineage subgraph)
       schemas/
         jurisdiction.py          # FieldConfig, ConfigType, JurisdictionConfig, etc.
         field.py                 # FieldDetail, XPathEntry, DependencyRef, JavaReference
@@ -79,6 +80,7 @@ synapse-trace/
         translation_service.py   # Stub: generates placeholder business translations
         llm_service.py           # Stub LLM service (_call_llm placeholder)
         chat_service.py          # CRUD for ChatSession/ChatMessage via SQLAlchemy
+        trace_service.py         # Variable tracer: BFS subgraph extraction from ParseCache
 
     orchestrator/                # Core lineage engine (standalone, no FastAPI dependency)
       parser.py                  # SynapseTracer CLI orchestrator (--project, --scan, --config)
@@ -106,7 +108,8 @@ synapse-trace/
         translation.ts           # fetchTranslation
         dashboard.ts             # fetchDashboardStats, fetchNodes, fetchEdges
         chat.ts                  # Chat session/message API calls
-        llm.ts                   # describeFIeld API call
+        llm.ts                   # describeField API call
+        trace.ts                 # traceVariable API call
       hooks/
         useJurisdictions.ts      # useQuery for jurisdictions and config types
         useFieldDetail.ts        # useQuery for field detail
@@ -114,6 +117,7 @@ synapse-trace/
         useDashboard.ts          # useQuery for dashboard stats, nodes, edges
         useChat.ts               # useQuery/useMutation for chat CRUD
         useLLM.ts                # useMutation for LLM describe
+        useTrace.ts              # useMutation for variable trace
       stores/
         appStore.ts              # Zustand store: jurisdictionId, configType, fieldName, etc.
       types/
@@ -212,6 +216,16 @@ The stitcher normalizes field names to enable cross-language matching:
 - `N_EFFECTIVE_DATE` (XSLT) matches `MessageKey.N_EFFECTIVE_DATE` (Java constant)
 - `nEffectiveDate` (Java camelCase) matches `N_EFFECTIVE_DATE` (UPPER_SNAKE)
 - Single-letter prefixes are stripped: `N_EFFECTIVE_DATE` also matches `EFFECTIVE_DATE` and `effectiveDate`
+
+### Variable Trace
+The `POST /api/trace/variable` endpoint extracts a focused subgraph for a single variable and all its name variations. The service:
+1. Expands the input name to all canonical forms via `_build_match_keys()` (camelCase, UPPER_SNAKE, prefix-stripped, etc.)
+2. Adds any user-supplied `additional_variations`
+3. Finds all seed nodes matching any variation in the cached `StitchedLineage`
+4. BFS-walks the graph up to `max_depth` hops from seed nodes
+5. Returns nodes + edges serialised as `TraceResponse`
+
+The frontend renders this as an interactive SVG force-directed graph (no D3, pure custom Fruchterman-Reingold layout) with drag, pan, zoom, and node selection.
 
 ### XPath Reverse Index
 An index built from XSLT findings that maps field names to their XPath expressions. Used by the field detail view and the XPath lookup endpoint to show where a field is referenced in XSLT transformations.
