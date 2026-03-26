@@ -1,8 +1,13 @@
 """Chat session and messaging endpoints."""
 from __future__ import annotations
 
+import logging
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_db
 from ..schemas.chat import (
@@ -94,7 +99,14 @@ async def send_message(
 ):
     session = chat_service.get_session(db, session_id)
     if not session:
+        logger.warning("POST /chat/sessions/%s/messages → 404 session not found", session_id)
         raise HTTPException(404, "Session not found")
+
+    logger.info(
+        "POST /chat/sessions/%s/messages — jid=%s field=%s len=%d",
+        session_id, body.jurisdiction_id, body.field_name, len(body.content),
+    )
+    t_llm = time.perf_counter()
 
     # Persist user message
     user_msg = chat_service.add_message(
@@ -116,6 +128,10 @@ async def send_message(
         question=body.content,
         jurisdiction_id=body.jurisdiction_id,
         field_name=body.field_name,
+    )
+    logger.info(
+        "LLM response for session %s in %.2fs (answer_len=%d)",
+        session_id, time.perf_counter() - t_llm, len(answer),
     )
 
     # Persist assistant message
@@ -154,5 +170,7 @@ async def send_message(
 def delete_session(session_id: str, db: Session = Depends(get_db)):
     deleted = chat_service.delete_session(db, session_id)
     if not deleted:
+        logger.warning("DELETE /chat/sessions/%s → 404 not found", session_id)
         raise HTTPException(404, "Session not found")
+    logger.info("DELETE /chat/sessions/%s → deleted", session_id)
     return {"status": "deleted", "session_id": session_id}

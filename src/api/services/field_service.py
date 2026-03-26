@@ -1,8 +1,11 @@
 """Field detail assembly from cached lineage data."""
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
@@ -15,13 +18,28 @@ from . import jurisdiction_service  # noqa: E402
 
 def get_field_detail(jurisdiction_id: str, field_name: str) -> FieldDetail | None:
     """Build a complete field detail view from cached parse results."""
+    logger.debug("get_field_detail: '%s' in '%s'", field_name, jurisdiction_id)
     field_config, config_type = jurisdiction_service.get_field(
         jurisdiction_id, field_name
     )
     if not field_config:
+        logger.info(
+            "get_field_detail: field '%s' not found in jurisdiction '%s'",
+            field_name, jurisdiction_id,
+        )
         return None
 
     cache = parse_cache.get(jurisdiction_id)
+    if not cache:
+        logger.debug(
+            "get_field_detail: no cache for jurisdiction '%s' — returning static config only",
+            jurisdiction_id,
+        )
+    elif cache.status != "ready":
+        logger.debug(
+            "get_field_detail: cache for '%s' has status '%s' — returning static config only",
+            jurisdiction_id, cache.status,
+        )
 
     detail = FieldDetail(
         jurisdiction_id=jurisdiction_id,
@@ -127,6 +145,10 @@ def get_field_detail(jurisdiction_id: str, field_name: str) -> FieldDetail | Non
                         )
                     )
 
+    logger.debug(
+        "get_field_detail: '%s' resolved — %d XPaths, %d dependencies",
+        field_name, len(input_xpaths), len(dependencies),
+    )
     detail.dependencies = dependencies
 
     # Find Java references
@@ -153,4 +175,8 @@ def get_field_detail(jurisdiction_id: str, field_name: str) -> FieldDetail | Non
             )
 
     detail.java_references = java_refs
+    logger.debug(
+        "get_field_detail: '%s' complete — %d Java refs, xslt_file=%s",
+        field_name, len(java_refs), detail.xslt_file,
+    )
     return detail

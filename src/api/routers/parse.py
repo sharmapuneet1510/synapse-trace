@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter
 
 from ..services import jurisdiction_service
 from ..services.cache import parse_cache
 from ..services.parse_service import trigger_batch_parse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/parse", tags=["parse"])
 
 
@@ -14,7 +17,9 @@ def trigger_parse():
     jurisdictions = jurisdiction_service.get_all()
     started = trigger_batch_parse(jurisdictions)
     if not started:
+        logger.info("POST /parse/trigger → already_running")
         return {"status": "already_running", "message": "Batch parse is already in progress"}
+    logger.info("POST /parse/trigger → started (%d jurisdictions)", len(jurisdictions))
     return {"status": "started", "message": f"Parsing {len(jurisdictions)} jurisdictions"}
 
 

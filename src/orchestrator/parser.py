@@ -72,7 +72,7 @@ class SynapseTracer:
         providers: list[BaseGraphProvider] = []
         for name in self._config.target_storages:
             if name not in STORAGE_REGISTRY:
-                print(f"Warning: unknown storage provider '{name}', skipping.")
+                logger.warning("Unknown storage provider '%s', skipping.", name)
                 continue
             cls = STORAGE_REGISTRY[name]
             if name == "pyvis":
@@ -106,12 +106,13 @@ class SynapseTracer:
             all_xslt_findings.extend(findings)
 
         if module.xslt_refs:
-            print(f"{indent}Cross-language refs:")
+            logger.info("%sCross-language refs: %d", indent, len(module.xslt_refs))
             for ref in module.xslt_refs:
                 resolved = ref.xslt_resolved or "(unresolved)"
-                print(
-                    f"{indent}  {ref.java_class}.{ref.java_method}() "
-                    f"-> {ref.xslt_filename} [{ref.ref_type}] -> {resolved}"
+                logger.debug(
+                    "%s  %s.%s() -> %s [%s] -> %s",
+                    indent, ref.java_class, ref.java_method,
+                    ref.xslt_filename, ref.ref_type, resolved,
                 )
 
     def trace(self) -> StitchedLineage:
@@ -121,7 +122,7 @@ class SynapseTracer:
 
         for repo in self._config.repos:
             repo.resolve_dirs()
-            print(f"\n  Project: {repo.name} ({repo.path})")
+            logger.info("Processing repo: %s (%s)", repo.name, repo.path)
 
             java_parser = JavaParser(repo_name=repo.name)
             xslt_parser = XsltParser(repo_name=repo.name)
@@ -129,28 +130,27 @@ class SynapseTracer:
             # --- Project scan mode: auto-discover modules ---
             if repo.project_scan:
                 project = self._scanner.scan_project(repo.path, name=repo.name)
-                print(f"    {project.summary()}")
+                logger.info("  %s", project.summary())
 
                 for module in project.modules:
-                    print(f"    Module: {module.name} — {module.summary()}")
-                    # Use module-qualified repo name for node IDs
+                    logger.info("  Module: %s — %s", module.name, module.summary())
                     mod_java = JavaParser(repo_name=module.name)
                     mod_xslt = XsltParser(repo_name=module.name)
                     self._parse_module(
                         module, mod_java, mod_xslt,
                         all_java_findings, all_xslt_findings,
-                        indent="      ",
+                        indent="    ",
                     )
 
             # --- Auto-scan mode: discover files in scan_dirs ---
             if repo.scan_dirs:
                 for d in repo.scan_dirs:
                     if not d.exists():
-                        print(f"    Warning: scan dir not found: {d}")
+                        logger.warning("Scan dir not found: %s", d)
                         continue
 
                     module = self._scanner.scan(d, name=repo.name)
-                    print(f"    Scanned: {module.summary()}")
+                    logger.info("  Scanned: %s", module.summary())
                     self._parse_module(
                         module, java_parser, xslt_parser,
                         all_java_findings, all_xslt_findings,
@@ -159,31 +159,35 @@ class SynapseTracer:
             # --- Explicit dirs mode: parse java_dirs and xslt_dirs ---
             for d in repo.java_dirs:
                 if not d.exists():
-                    print(f"    Warning: Java dir not found: {d}")
+                    logger.warning("Java dir not found: %s", d)
                     continue
                 found = java_parser.parse_directory(d)
                 all_java_findings.extend(found)
-                print(f"    Java: {len(found)} findings from {d}")
+                logger.info("  Java: %d findings from %s", len(found), d)
 
             for d in repo.xslt_dirs:
                 if not d.exists():
-                    print(f"    Warning: XSLT dir not found: {d}")
+                    logger.warning("XSLT dir not found: %s", d)
                     continue
                 found = xslt_parser.parse_directory(d)
                 all_xslt_findings.extend(found)
-                print(f"    XSLT: {len(found)} findings from {d}")
+                logger.info("  XSLT: %d findings from %s", len(found), d)
 
         # Stitch all findings across all repos
         lineage = self._stitcher.stitch(all_java_findings, all_xslt_findings)
-        print(f"\n  Stitched: {len(lineage.nodes)} nodes, {len(lineage.edges)} edges")
+        logger.info(
+            "Stitched: %d nodes, %d edges (from %d Java + %d XSLT findings)",
+            len(lineage.nodes), len(lineage.edges),
+            len(all_java_findings), len(all_xslt_findings),
+        )
 
         # Count special edges
         cross_repo = sum(1 for e in lineage.edges if e.edge_type.value == "CROSS_REPO")
         loads_xslt = sum(1 for e in lineage.edges if e.edge_type.value == "LOADS_XSLT")
         if cross_repo:
-            print(f"  Cross-repo links: {cross_repo}")
+            logger.info("Cross-repo links: %d", cross_repo)
         if loads_xslt:
-            print(f"  Java→XSLT links: {loads_xslt}")
+            logger.info("Java→XSLT links: %d", loads_xslt)
 
         # Persist
         for provider in self._providers:
@@ -191,9 +195,9 @@ class SynapseTracer:
             provider.ingest_lineage(lineage)
             try:
                 provider.persist()
-                print(f"  Persisted to {provider_name}")
+                logger.info("Persisted to %s", provider_name)
             except NotImplementedError as e:
-                print(f"  {provider_name}: {e}")
+                logger.warning("%s: %s", provider_name, e)
 
         return lineage
 
@@ -331,6 +335,17 @@ Examples:
         neo4j_uri=args.neo4j_uri,
         neo4j_user=args.neo4j_user,
         neo4j_password=args.neo4j_password,
+    )
+
+    # Configure logging for CLI usage
+    log_level = logging.DEBUG if any(
+        v in __import__("os").environ.get("LOG_LEVEL", "")
+        for v in ("DEBUG", "debug")
+    ) else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     print("Synapse Trace — Data Lineage Analysis")

@@ -4,7 +4,11 @@ Currently returns placeholder content. Will be connected to LLM later.
 """
 from __future__ import annotations
 
+import logging
+
 from ..schemas.translation import TranslationResult
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationService:
@@ -17,6 +21,12 @@ class TranslationService:
         xpaths: list[str] | None = None,
         dependencies: list[str] | None = None,
     ) -> TranslationResult:
+        logger.info(
+            "translate.explain: field='%s' jid='%s' xpaths=%d deps=%d [STUB]",
+            field_name, jurisdiction_id,
+            len(xpaths) if xpaths else 0,
+            len(dependencies) if dependencies else 0,
+        )
         dep_text = ", ".join(dependencies) if dependencies else "none identified"
         xpath_text = ", ".join(xpaths[:5]) if xpaths else "none"
 

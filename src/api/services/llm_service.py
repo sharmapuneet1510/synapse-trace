@@ -1,6 +1,10 @@
 """Stub LLM service. Replace _call_llm with your own API."""
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class LLMService:
     """Stub LLM service. User will replace _call_llm with their own API."""
@@ -14,6 +18,11 @@ class LLMService:
             )
             return response.choices[0].message.content
         """
+        logger.warning(
+            "_call_llm: STUB invoked — returning placeholder. "
+            "Wire a real LLM in llm_service.py._call_llm(). "
+            "Prompt length: %d chars", len(prompt),
+        )
         return f"[LLM Stub Response] This is a placeholder response for: {prompt[:100]}..."
 
     async def generate_business_description(
@@ -23,6 +32,10 @@ class LLMService:
         code_logic: str | None = None,
         xpaths: list[str] | None = None,
     ) -> str:
+        logger.info(
+            "generate_business_description: field='%s' jid='%s' [STUB]",
+            field_name, jurisdiction_id,
+        )
         prompt = (
             f"Explain the business purpose of field '{field_name}' "
             f"in {jurisdiction_id} regulatory reporting..."
@@ -44,6 +57,10 @@ class LLMService:
         field_name: str | None = None,
         context: dict | None = None,
     ) -> str:
+        logger.info(
+            "answer_chat_query: jid='%s' field='%s' question_len=%d [STUB]",
+            jurisdiction_id, field_name, len(question),
+        )
         ctx_parts = []
         if jurisdiction_id:
             ctx_parts.append(f"jurisdiction: {jurisdiction_id.upper()}")

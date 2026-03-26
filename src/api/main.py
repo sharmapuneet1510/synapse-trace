@@ -1,6 +1,7 @@
 """Synapse Trace API — FastAPI application."""
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,21 +9,42 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS, JURISDICTION_JSON
 from .database import init_db
+from .logging_config import setup_logging
 from .routers import chat, dashboard, fields, jurisdictions, llm, parse, trace, translation, xpath
 from .services import jurisdiction_service
+
+# Configure logging before anything else so all module-level loggers inherit it
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: initialise database tables
-    init_db()
-    print("Database initialised")
-    # Startup: load jurisdiction config
-    jurisdiction_service.load_config(JURISDICTION_JSON)
-    print(f"Loaded {len(jurisdiction_service.get_all())} jurisdictions from {JURISDICTION_JSON}")
+    # ── Startup ──────────────────────────────────────────────────────────────
+    logger.info("Synapse Trace API starting up")
+    try:
+        init_db()
+        logger.info("Database initialised successfully")
+    except Exception:
+        logger.exception("Failed to initialise database — aborting startup")
+        raise
+
+    try:
+        jur_list = jurisdiction_service.load_config(JURISDICTION_JSON)
+        logger.info(
+            "Loaded %d jurisdiction(s) from %s: %s",
+            len(jur_list),
+            JURISDICTION_JSON,
+            [j.id for j in jur_list],
+        )
+    except Exception:
+        logger.exception("Failed to load jurisdiction config from %s", JURISDICTION_JSON)
+        raise
+
     yield
-    # Shutdown
-    print("Synapse Trace API shutting down")
+
+    # ── Shutdown ─────────────────────────────────────────────────────────────
+    logger.info("Synapse Trace API shutting down")
 
 
 app = FastAPI(

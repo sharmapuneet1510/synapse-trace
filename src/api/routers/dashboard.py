@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from ..services.cache import parse_cache
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
@@ -106,27 +108,34 @@ def get_edges(jurisdiction_id: str, limit: int = 100, offset: int = 0):
 
 
 @router.get("/live")
-async def live_logs():
+async def live_logs(request: Request):
     """SSE endpoint for live batch parse logs."""
+    logger.info("SSE client connected: GET /dashboard/live")
 
     async def event_stream():
         last_index = 0
-        while True:
-            logs = parse_cache.get_logs(500)
-            if len(logs) > last_index:
-                new_logs = logs[last_index:]
-                for log in new_logs:
-                    yield f"data: {json.dumps(log)}\n\n"
-                last_index = len(logs)
+        try:
+            while True:
+                if await request.is_disconnected():
+                    logger.info("SSE client disconnected from /dashboard/live")
+                    break
 
-            # Send heartbeat with current status
-            status = {
-                "type": "heartbeat",
-                "batch_status": parse_cache.batch_status,
-                "timestamp": datetime.now().isoformat(),
-            }
-            yield f"data: {json.dumps(status)}\n\n"
+                logs = parse_cache.get_logs(500)
+                if len(logs) > last_index:
+                    new_logs = logs[last_index:]
+                    for log in new_logs:
+                        yield f"data: {json.dumps(log)}\n\n"
+                    last_index = len(logs)
 
-            await asyncio.sleep(1)
+                status = {
+                    "type": "heartbeat",
+                    "batch_status": parse_cache.batch_status,
+                    "timestamp": datetime.now().isoformat(),
+                }
+                yield f"data: {json.dumps(status)}\n\n"
+
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("SSE stream cancelled for /dashboard/live")
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

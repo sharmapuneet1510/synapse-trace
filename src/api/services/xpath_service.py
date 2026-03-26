@@ -1,6 +1,7 @@
 """XPath reverse lookup: given a field name, find all XSLT XPaths that reference it."""
 from __future__ import annotations
 
+import logging
 import re
 import sys
 from collections import defaultdict
@@ -12,6 +13,8 @@ from ..schemas.field import XPathEntry
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from orchestrator.stitcher import _build_match_keys  # noqa: E402
 
+logger = logging.getLogger(__name__)
+
 
 class XPathIndex:
     """Reverse index: field_name -> list of XPath occurrences."""
@@ -21,6 +24,8 @@ class XPathIndex:
 
     def build_from_findings(self, xslt_findings: list) -> None:
         """Build the reverse index from XsltFinding objects."""
+        logger.debug("XPathIndex.build_from_findings: indexing %d XSLT findings", len(xslt_findings))
+        indexed = 0
         for finding in xslt_findings:
             if finding.finding_type == "value_of" and finding.field_source:
                 field_name = self._extract_terminal(finding.field_source)
@@ -36,6 +41,7 @@ class XPathIndex:
                 )
                 for key in _build_match_keys(field_name):
                     self._index[key].append(entry)
+                indexed += 1
 
             # Also index copy-of / field_mapping findings
             if finding.finding_type == "field_mapping" and finding.field_source:
@@ -52,6 +58,12 @@ class XPathIndex:
                 )
                 for key in _build_match_keys(field_name):
                     self._index[key].append(entry)
+                indexed += 1
+
+        logger.debug(
+            "XPathIndex.build_from_findings: indexed %d entries across %d canonical keys",
+            indexed, len(self._index),
+        )
 
     def lookup(self, field_name: str) -> list[XPathEntry]:
         """Look up all XPaths that reference the given field name."""
@@ -64,6 +76,10 @@ class XPathIndex:
                 if entry_id not in seen:
                     seen.add(entry_id)
                     results.append(entry)
+        logger.debug(
+            "XPathIndex.lookup: '%s' → %d match(es) via %d keys",
+            field_name, len(results), len(keys),
+        )
         return results
 
     @staticmethod

@@ -1,12 +1,15 @@
 """Chat session and message persistence service."""
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from ..models.chat import ChatMessage, ChatSession
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -23,6 +26,7 @@ class ChatService:
         db.add(session)
         db.commit()
         db.refresh(session)
+        logger.info("Created chat session %s for user '%s'", session.id, user_id)
         return session
 
     def get_sessions(
@@ -64,6 +68,10 @@ class ChatService:
             session.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(message)
+        logger.debug(
+            "Message persisted — session=%s role=%s jid=%s field=%s len=%d",
+            session_id, role, jurisdiction_id, field_name, len(content),
+        )
         return message
 
     def get_messages(
@@ -80,9 +88,11 @@ class ChatService:
     def delete_session(self, db: Session, session_id: str) -> bool:
         session = self.get_session(db, session_id)
         if not session:
+            logger.warning("delete_session: session %s not found", session_id)
             return False
         db.delete(session)
         db.commit()
+        logger.info("Deleted chat session %s", session_id)
         return True
 
 

@@ -1,11 +1,14 @@
 """LLM utility endpoints."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..services.llm_service import llm_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/llm", tags=["llm"])
 
 
@@ -24,6 +27,9 @@ class DescribeResponse(BaseModel):
 
 @router.post("/describe", response_model=DescribeResponse)
 async def describe_field(body: DescribeRequest):
+    logger.info(
+        "POST /llm/describe: field='%s' jid='%s'", body.field_name, body.jurisdiction_id
+    )
     description = await llm_service.generate_business_description(
         field_name=body.field_name,
         jurisdiction_id=body.jurisdiction_id,
