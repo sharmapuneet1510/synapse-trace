@@ -6,7 +6,7 @@ from typing import List
 def matches_pattern(package: str, pattern: str) -> bool:
     """Check if a package name matches a glob-style pattern.
 
-    Supports patterns like ``*nomura*``, ``com.nomura.*``, ``*no*``,
+    Supports patterns like ``*xxx*``, ``com.xxx.*``,
     and exact names.
     """
     if not package or not pattern:

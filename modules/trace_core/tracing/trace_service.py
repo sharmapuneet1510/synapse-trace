@@ -131,7 +131,7 @@ class TraceService:
                 pass
         return {
             "trace": {
-                "includePackages": ["*nomura*", "*no*"],
+                "includePackages": ["*xxx*"],
                 "excludePackages": ["java.*", "javax.*", "org.springframework.*"],
                 "stopPackages": ["org.apache.*"],
                 "maxDepth": 20,

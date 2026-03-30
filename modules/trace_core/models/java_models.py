@@ -90,7 +90,7 @@ class JavaMethod:
 
 @dataclass
 class JavaClass:
-    fqn: str  # fully qualified name e.g. com.nomura.trade.TradeService
+    fqn: str  # fully qualified name e.g. com.xxx.trade.TradeService
     simple_name: str
     package: str
     file_path: str

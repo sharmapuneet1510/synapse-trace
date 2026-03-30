@@ -1,8 +1,7 @@
 trace:
   includePackages:
-    - "*nomura*"
-    - "*no*"
-    - "com.nomura.*"
+    - "*xxx*"
+    - "com.xxx.*"
   excludePackages:
     - "java.*"
     - "javax.*"
