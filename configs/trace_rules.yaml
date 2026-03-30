@@ -1,0 +1,21 @@
+trace:
+  includePackages:
+    - "*nomura*"
+    - "*no*"
+    - "com.nomura.*"
+  excludePackages:
+    - "java.*"
+    - "javax.*"
+    - "org.springframework.*"
+    - "com.google.*"
+    - "org.slf4j.*"
+    - "ch.qos.*"
+  stopPackages:
+    - "org.apache.*"
+  maxDepth: 20
+  followInternalCallsOnly: true
+  enableConditionTracing: true
+  enableXsltImports: true
+  enableXsltIncludes: true
+  classifyTransformations: true
+  shallowTraceExternal: false

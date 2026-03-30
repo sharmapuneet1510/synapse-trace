@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    @apply bg-slate-950 text-slate-100 font-mono m-0 p-0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+/* React Flow overrides */
+.react-flow__background { background-color: #0f172a; }
+.react-flow__controls button { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+.react-flow__controls button:hover { background: #334155; }
+.react-flow__minimap { background: #0f172a; border: 1px solid #334155; border-radius: 6px; }
+.react-flow__edge-path { stroke: #475569; }
+.react-flow__edge-text { fill: #94a3b8; font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }

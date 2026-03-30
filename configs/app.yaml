@@ -1,0 +1,22 @@
+platform:
+  name: "Data Lineage Platform"
+  version: "1.0.0"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+
+repositories_file: "configs/repositories.yaml"
+trace_rules_file: "configs/trace_rules.yaml"
+
+logging:
+  level: "DEBUG"
+  config_file: "configs/logging.yaml"
+
+outputs:
+  base_dir: "outputs"
+  graphs_dir: "outputs/graphs"
+  json_dir: "outputs/json"
+  html_dir: "outputs/html"
+  debug_dir: "outputs/debug"

@@ -1,0 +1,13 @@
+{"timestamp": "2026-03-30T09:36:17.489729+00:00", "level": "INFO", "module": "trace", "message": "Starting trace for field 'N_SETTLEMENT_DATE'", "trace_id": "9cb4578e-c72c-47bb-9d97-b004b479e62b", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:36:17.490523+00:00", "level": "INFO", "module": "trace", "message": "Building index for 4 repositories"}
+{"timestamp": "2026-03-30T09:36:45.773227+00:00", "level": "INFO", "module": "trace", "message": "Starting trace for field 'N_SETTLEMENT_DATE'", "trace_id": "a53bb8bd-0940-4e39-83ba-7a6400727511", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:36:45.774113+00:00", "level": "INFO", "module": "trace", "message": "Building index for 4 repositories"}
+{"timestamp": "2026-03-30T09:38:16.698075+00:00", "level": "INFO", "module": "trace", "message": "Starting trace for field 'N_SETTLEMENT_DATE'", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.698981+00:00", "level": "INFO", "module": "trace", "message": "Building index for 4 repositories"}
+{"timestamp": "2026-03-30T09:38:16.710964+00:00", "level": "INFO", "module": "trace", "message": "Origin detection: 2 XSLT templates, 0 Java methods", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.710999+00:00", "level": "INFO", "module": "trace", "message": "Field 'N_SETTLEMENT_DATE' origin detected as: XSLT", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.711043+00:00", "level": "INFO", "module": "trace", "message": "XSLT trace: found 2 entry templates for field 'N_SETTLEMENT_DATE'", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.711095+00:00", "level": "INFO", "module": "trace", "message": "XSLT phase: 2 nodes, 0 edges", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.711127+00:00", "level": "INFO", "module": "trace", "message": "Trace complete: 2 total nodes, 0 total edges", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}
+{"timestamp": "2026-03-30T09:38:16.711302+00:00", "level": "DEBUG", "module": "trace", "message": "Graph built: 2 nodes, 0 edges"}
+{"timestamp": "2026-03-30T09:38:16.711351+00:00", "level": "INFO", "module": "trace", "message": "Trace complete \u2013 2 nodes, 1 branches", "trace_id": "9385ea26-d332-456e-96df-4c0d2d1ddb14", "field_name": "N_SETTLEMENT_DATE"}

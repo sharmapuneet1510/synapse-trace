@@ -1,0 +1,86 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  structured:
+    "()": modules.trace_core.logging.formatters.StructuredFormatter
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: structured
+    stream: ext://sys.stdout
+    level: DEBUG
+
+  application_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/application.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: DEBUG
+
+  scanner_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/scanner.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: DEBUG
+
+  parser_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/parser.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: DEBUG
+
+  trace_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/trace.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: DEBUG
+
+  audit_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/audit.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: INFO
+
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: structured
+    filename: logs/error.log
+    maxBytes: 10485760
+    backupCount: 5
+    level: WARNING
+
+loggers:
+  scanner:
+    handlers: [console, scanner_file, error_file]
+    level: DEBUG
+    propagate: false
+
+  parser:
+    handlers: [console, parser_file, error_file]
+    level: DEBUG
+    propagate: false
+
+  trace:
+    handlers: [console, trace_file, audit_file, error_file]
+    level: DEBUG
+    propagate: false
+
+  api:
+    handlers: [console, application_file, error_file]
+    level: INFO
+    propagate: false
+
+root:
+  handlers: [console, application_file, error_file]
+  level: DEBUG

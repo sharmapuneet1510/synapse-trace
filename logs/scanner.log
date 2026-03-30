@@ -1,0 +1,19 @@
+{"timestamp": "2026-03-30T09:36:17.490572+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 4 repositories"}
+{"timestamp": "2026-03-30T09:36:45.774167+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 4 repositories"}
+{"timestamp": "2026-03-30T09:36:45.774318+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.000s"}
+{"timestamp": "2026-03-30T09:38:16.699036+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 4 repositories"}
+{"timestamp": "2026-03-30T09:38:16.699185+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: ./tests/fixtures/sample", "repository": "./tests/fixtures/sample"}
+{"timestamp": "2026-03-30T09:38:16.699456+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 1 Java files, 1 XSLT files", "repository": "./tests/fixtures/sample"}
+{"timestamp": "2026-03-30T09:38:16.699503+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: ./tests/fixtures/multi-repo/app-trade", "repository": "./tests/fixtures/multi-repo/app-trade"}
+{"timestamp": "2026-03-30T09:38:16.699733+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 1 Java files, 1 XSLT files", "repository": "./tests/fixtures/multi-repo/app-trade"}
+{"timestamp": "2026-03-30T09:38:16.699778+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: ./tests/fixtures/multi-repo/lib-common", "repository": "./tests/fixtures/multi-repo/lib-common"}
+{"timestamp": "2026-03-30T09:38:16.699935+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 2 Java files, 0 XSLT files", "repository": "./tests/fixtures/multi-repo/lib-common"}
+{"timestamp": "2026-03-30T09:38:16.699967+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: ./tests/fixtures/app-with-libs", "repository": "./tests/fixtures/app-with-libs"}
+{"timestamp": "2026-03-30T09:38:16.701194+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 4 Java files, 2 XSLT files", "repository": "./tests/fixtures/app-with-libs"}
+{"timestamp": "2026-03-30T09:38:16.709229+00:00", "level": "DEBUG", "module": "scanner", "message": "Java indexing completed in 0.008s"}
+{"timestamp": "2026-03-30T09:38:16.709258+00:00", "level": "INFO", "module": "scanner", "message": "Java indexing complete: 8 classes indexed"}
+{"timestamp": "2026-03-30T09:38:16.710276+00:00", "level": "DEBUG", "module": "scanner", "message": "XSLT indexing completed in 0.001s"}
+{"timestamp": "2026-03-30T09:38:16.710311+00:00", "level": "INFO", "module": "scanner", "message": "XSLT indexing complete: 5 templates"}
+{"timestamp": "2026-03-30T09:38:16.710348+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
+{"timestamp": "2026-03-30T09:38:16.710375+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.011s"}
+{"timestamp": "2026-03-30T09:38:16.710404+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 8 Java classes, 5 XSLT templates, 0 cross-links"}

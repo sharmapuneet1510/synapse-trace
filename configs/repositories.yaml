@@ -1,0 +1,24 @@
+repositories:
+  - name: "sample-repo"
+    path: "./tests/fixtures/sample"
+    type: "maven"
+    enabled: true
+    description: "Sample trade processor fixtures"
+
+  - name: "multi-repo-trade"
+    path: "./tests/fixtures/multi-repo/app-trade"
+    type: "maven"
+    enabled: true
+    description: "Multi-repo trade application"
+
+  - name: "multi-repo-common"
+    path: "./tests/fixtures/multi-repo/lib-common"
+    type: "maven"
+    enabled: true
+    description: "Multi-repo common library"
+
+  - name: "app-with-libs"
+    path: "./tests/fixtures/app-with-libs"
+    type: "maven"
+    enabled: true
+    description: "App with external library fixtures"
