@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Lineage Trace: N_CLEARED</title>
+<style>
+  body { font-family: 'JetBrains Mono', monospace; background:#0f172a; color:#e2e8f0; padding:2rem; }
+  h1 { color:#38bdf8; } h2 { color:#7dd3fc; border-bottom:1px solid #334155; padding-bottom:0.5rem; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; margin-left:8px; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  .node { border-left:4px solid; padding:0.75rem; margin:0.5rem 0; border-radius:4px; background:#1e293b; }
+  .evidence { font-size:0.8rem; color:#94a3b8; margin-top:0.5rem; }
+  .branch { background:#1e293b; border:1px solid #475569; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  pre { background:#0f172a; padding:0.5rem; border-radius:4px; overflow-x:auto; font-size:0.75rem; color:#a3e635; }
+  .pipeline { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
+  .arrow { color:#475569; font-size:1.2rem; }
+</style>
+</head>
+<body>
+<h1>Field Lineage: N_CLEARED</h1>
+<div class="card">
+  <b>Origin:</b> <span class="badge" style="background:#0284c7">XSLT_THEN_JAVA</span>
+  &nbsp;<b>Nodes:</b> 7
+  &nbsp;<b>Branches:</b> 24
+  &nbsp;<b>XSLT:</b> Yes
+  &nbsp;<b>Java:</b> Yes
+</div>
+<h2>Technical Explanation</h2>
+<div class="card"><pre>=== Technical Lineage Trace ===
+
+[ XSLT Phase ]
+  1. XSLT: buildClearingReport
+     Location: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl:None
+     Type: PASS_THROUGH
+  2. XSLT: setClearedField
+     Location: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl:None
+     Type: PASS_THROUGH
+     Conditions: , 
+
+[ Java Phase ]
+  1. ClearingService.process() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java:12]
+     Type: OVERRIDE
+     Conditions: &quot;JP&quot;.equals(jurisdiction; &quot;US&quot;.equals(jurisdiction
+  2. ClearingService.applyJurisdictionOverride() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java:25]
+     Type: OVERRIDE
+     Conditions: &quot;JP&quot;.equals(jurisdiction; &quot;US&quot;.equals(jurisdiction
+  3. ClearingHelper.getClearedFlag() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/helper/ClearingHelper.java:8]
+     Type: OVERRIDE
+     Conditions: trade == null; trade.isCleared(
+  4. ClearingReport.getNCleared() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:8]
+     Type: EXTRACTION
+     Assigns: nCleared = nCleared
+  5. ClearingReport.setNCleared() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:10]
+     Type: PASS_THROUGH
+     Assigns: nCleared = nCleared
+
+[ Branch Analysis – 24 branches ]
+  Branch: [if] unknown condition == TRUE
+    Outcome: Y
+  Branch: [if] unknown condition == FALSE
+    Outcome: N
+  Branch: [if] unknown condition == TRUE
+    Outcome: Y
+  Branch: [if] unknown condition == FALSE
+    Outcome: N
+  Branch: [if] &quot;JP&quot;.equals(jurisdiction == TRUE</pre></div>
+<h2>Business Explanation</h2>
+<div class="card">The field &#x27;N_CLEARED&#x27; starts its journey in an XSLT stylesheet where it is initially extracted or mapped. It then flows into the Java layer where it may be further enriched, overridden, or finalised before appearing in the report. The field passes through 5 Java method(s): process, applyJurisdictionOverride, getClearedFlag, getNCleared. The field value depends on 24 conditional outcome(s). Different business conditions may result in different values being assigned.   • When [if] unknown condition == TRUE: value is set to &#x27;Y&#x27;.   • When [if] unknown condition == FALSE: value is set to &#x27;N&#x27;.   • When [if] unknown condition == TRUE: value is set to &#x27;Y&#x27;.</div>
+<h2>Pipeline (7 steps)</h2>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>XSLT: buildClearingReport</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: buildClearingReport | Method: buildClearingReport | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl</div>
+  <pre>&lt;ns0:template xmlns:ns0=&quot;http://www.w3.org/1999/XSL/Transform&quot; name=&quot;buildClearingReport&quot;&gt;
+    &lt;ns0:variable name=&quot;tradeId&quot; select=&quot;//trade/id&quot; /&gt;
+    &lt;ns0:variable name=&quot;clearFlag&quot; select=&quot;//trade/cl</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>XSLT: setClearedField</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: setClearedField | Method: setClearedField | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl</div>
+  <pre>&lt;ns0:template xmlns:ns0=&quot;http://www.w3.org/1999/XSL/Transform&quot; name=&quot;setClearedField&quot;&gt;
+    &lt;ns0:param name=&quot;flag&quot; /&gt;
+    &lt;ns0:param name=&quot;jur&quot; /&gt;
+
+    &lt;ns0:choose&gt;
+      &lt;ns0:when test=&quot;$flag = &#x27;true&#x27;</pre>
+</div>
+
+<div class="node" style="border-color:#F59E0B">
+  <b>ClearingService.process()</b>
+  <span class="badge" style="background:#F59E0B">OVERRIDE</span>
+  <div class="evidence">Class: ClearingService | Method: process | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java | Line: 12</div>
+  <pre>ClearingReport report = new ClearingReport();
+
+        // Enrich N_CLEARED using business logic
+        String cleared = helper.getClearedFlag(trade);
+        report.setNCleared(cleared);
+
+        // </pre>
+</div>
+
+<div class="node" style="border-color:#F59E0B">
+  <b>ClearingService.applyJurisdictionOverride()</b>
+  <span class="badge" style="background:#F59E0B">OVERRIDE</span>
+  <div class="evidence">Class: ClearingService | Method: applyJurisdictionOverride | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java | Line: 25</div>
+  <pre>if (&quot;JP&quot;.equals(jurisdiction)) {
+            report.setNCleared(&quot;N&quot;);
+        } else if (&quot;US&quot;.equals(jurisdiction)) {
+            String existing = report.getNCleared();
+            if (existing == nu</pre>
+</div>
+
+<div class="node" style="border-color:#F59E0B">
+  <b>ClearingHelper.getClearedFlag()</b>
+  <span class="badge" style="background:#F59E0B">OVERRIDE</span>
+  <div class="evidence">Class: ClearingHelper | Method: getClearedFlag | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/helper/ClearingHelper.java | Line: 8</div>
+  <pre>if (trade == null) {
+            return &quot;UNKNOWN&quot;;
+        }
+        if (trade.isCleared()) {
+            return &quot;Y&quot;;
+        } else if (&quot;JP&quot;.equals(trade.getJurisdiction())) {
+            return &quot;N&quot;;</pre>
+</div>
+
+<div class="node" style="border-color:#3B82F6">
+  <b>ClearingReport.getNCleared()</b>
+  <span class="badge" style="background:#3B82F6">EXTRACTION</span>
+  <div class="evidence">Class: ClearingReport | Method: getNCleared | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 8</div>
+  <pre>return nCleared; }
+    public void setNCleared(String nCleared) { this.nCleared = nCleared; }
+
+    public String getNSettlementDate() { return nSettlementDate; }
+    public void setNSettlementDate(Str</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingReport.setNCleared()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingReport | Method: setNCleared | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 10</div>
+  <pre>this.nCleared = nCleared; }
+
+    public String getNSettlementDate() { return nSettlementDate; }
+    public void setNSettlementDate(String nSettlementDate) { this.nSettlementDate = nSettlementDate; }
+
+</pre>
+</div>
+<h2>Branches (24)</h2>
+
+<div class="branch">
+  <b>Condition:</b> [if] unknown condition == TRUE<br/>
+  <b>Outcome:</b> Y
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] unknown condition == FALSE<br/>
+  <b>Outcome:</b> N
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] unknown condition == TRUE<br/>
+  <b>Outcome:</b> Y
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] unknown condition == FALSE<br/>
+  <b>Outcome:</b> N
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] trade == null == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] trade == null == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] trade.isCleared( == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] trade.isCleared( == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;JP&quot;.equals(trade.getJurisdiction( == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;JP&quot;.equals(trade.getJurisdiction( == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;CONFIRMED&quot;.equals(status == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;CONFIRMED&quot;.equals(status == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+</body></html>

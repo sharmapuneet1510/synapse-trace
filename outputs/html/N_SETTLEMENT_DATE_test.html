@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Lineage Trace: N_SETTLEMENT_DATE</title>
+<style>
+  body { font-family: 'JetBrains Mono', monospace; background:#0f172a; color:#e2e8f0; padding:2rem; }
+  h1 { color:#38bdf8; } h2 { color:#7dd3fc; border-bottom:1px solid #334155; padding-bottom:0.5rem; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; margin-left:8px; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  .node { border-left:4px solid; padding:0.75rem; margin:0.5rem 0; border-radius:4px; background:#1e293b; }
+  .evidence { font-size:0.8rem; color:#94a3b8; margin-top:0.5rem; }
+  .branch { background:#1e293b; border:1px solid #475569; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  pre { background:#0f172a; padding:0.5rem; border-radius:4px; overflow-x:auto; font-size:0.75rem; color:#a3e635; }
+  .pipeline { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
+  .arrow { color:#475569; font-size:1.2rem; }
+</style>
+</head>
+<body>
+<h1>Field Lineage: N_SETTLEMENT_DATE</h1>
+<div class="card">
+  <b>Origin:</b> <span class="badge" style="background:#0284c7">XSLT_THEN_JAVA</span>
+  &nbsp;<b>Nodes:</b> 6
+  &nbsp;<b>Branches:</b> 6
+  &nbsp;<b>XSLT:</b> Yes
+  &nbsp;<b>Java:</b> Yes
+</div>
+<h2>Technical Explanation</h2>
+<div class="card"><pre>=== Technical Lineage Trace ===
+
+[ XSLT Phase ]
+  1. XSLT: buildSettlementDate
+     Location: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl:None
+     Type: PASS_THROUGH
+
+[ Java Phase ]
+  1. ClearingService.process() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java:12]
+     Type: OVERRIDE
+     Conditions: &quot;JP&quot;.equals(jurisdiction; &quot;US&quot;.equals(jurisdiction
+  2. ClearingReport.getNCleared() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:8]
+     Type: EXTRACTION
+     Assigns: nSettlementDate = nSettlementDate
+  3. ClearingReport.setNCleared() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:10]
+     Type: PASS_THROUGH
+     Assigns: nSettlementDate = nSettlementDate
+  4. ClearingReport.getNSettlementDate() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:11]
+     Type: EXTRACTION
+     Assigns: nSettlementDate = nSettlementDate
+  5. ClearingReport.setNSettlementDate() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java:13]
+     Type: PASS_THROUGH
+     Assigns: nSettlementDate = nSettlementDate
+
+[ Branch Analysis – 6 branches ]
+  Branch: [if] &quot;JP&quot;.equals(jurisdiction == TRUE
+  Branch: [if] &quot;JP&quot;.equals(jurisdiction == FALSE
+  Branch: [else_if] &quot;US&quot;.equals(jurisdiction == TRUE
+  Branch: [else_if] &quot;US&quot;.equals(jurisdiction == FALSE
+  Branch: [if] existing == null || existing.isEmpty( == TRUE</pre></div>
+<h2>Business Explanation</h2>
+<div class="card">The field &#x27;N_SETTLEMENT_DATE&#x27; starts its journey in an XSLT stylesheet where it is initially extracted or mapped. It then flows into the Java layer where it may be further enriched, overridden, or finalised before appearing in the report. The field passes through 5 Java method(s): process, getNCleared, setNCleared, getNSettlementDate. The field value depends on 6 conditional outcome(s). Different business conditions may result in different values being assigned.</div>
+<h2>Pipeline (6 steps)</h2>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>XSLT: buildSettlementDate</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: buildSettlementDate | Method: buildSettlementDate | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/resources/xslt/clearing_transform.xsl</div>
+  <pre>&lt;ns0:template xmlns:ns0=&quot;http://www.w3.org/1999/XSL/Transform&quot; name=&quot;buildSettlementDate&quot;&gt;
+    &lt;ns0:variable name=&quot;rawDate&quot; select=&quot;//trade/settlementDate&quot; /&gt;
+    &lt;N_SETTLEMENT_DATE&gt;&lt;ns0:value-of sele</pre>
+</div>
+
+<div class="node" style="border-color:#F59E0B">
+  <b>ClearingService.process()</b>
+  <span class="badge" style="background:#F59E0B">OVERRIDE</span>
+  <div class="evidence">Class: ClearingService | Method: process | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/clearing/ClearingService.java | Line: 12</div>
+  <pre>ClearingReport report = new ClearingReport();
+
+        // Enrich N_CLEARED using business logic
+        String cleared = helper.getClearedFlag(trade);
+        report.setNCleared(cleared);
+
+        // </pre>
+</div>
+
+<div class="node" style="border-color:#3B82F6">
+  <b>ClearingReport.getNCleared()</b>
+  <span class="badge" style="background:#3B82F6">EXTRACTION</span>
+  <div class="evidence">Class: ClearingReport | Method: getNCleared | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 8</div>
+  <pre>return nCleared; }
+    public void setNCleared(String nCleared) { this.nCleared = nCleared; }
+
+    public String getNSettlementDate() { return nSettlementDate; }
+    public void setNSettlementDate(Str</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingReport.setNCleared()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingReport | Method: setNCleared | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 10</div>
+  <pre>this.nCleared = nCleared; }
+
+    public String getNSettlementDate() { return nSettlementDate; }
+    public void setNSettlementDate(String nSettlementDate) { this.nSettlementDate = nSettlementDate; }
+
+</pre>
+</div>
+
+<div class="node" style="border-color:#3B82F6">
+  <b>ClearingReport.getNSettlementDate()</b>
+  <span class="badge" style="background:#3B82F6">EXTRACTION</span>
+  <div class="evidence">Class: ClearingReport | Method: getNSettlementDate | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 11</div>
+  <pre>return nSettlementDate; }
+    public void setNSettlementDate(String nSettlementDate) { this.nSettlementDate = nSettlementDate; }
+
+    public String getNTradeAmount() { return nTradeAmount; }
+    publi</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingReport.setNSettlementDate()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingReport | Method: setNSettlementDate | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d/src/main/java/com/xxx/model/ClearingReport.java | Line: 13</div>
+  <pre>this.nSettlementDate = nSettlementDate; }
+
+    public String getNTradeAmount() { return nTradeAmount; }
+    public void setNTradeAmount(String nTradeAmount) { this.nTradeAmount = nTradeAmount; }
+
+    </pre>
+</div>
+<h2>Branches (6)</h2>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] &quot;JP&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [else_if] &quot;US&quot;.equals(jurisdiction == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == TRUE<br/>
+  <b>Outcome:</b> 
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [if] existing == null || existing.isEmpty( == FALSE<br/>
+  <b>Outcome:</b> 
+</div>
+</body></html>

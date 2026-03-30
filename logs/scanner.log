@@ -17,3 +17,43 @@
 {"timestamp": "2026-03-30T09:38:16.710348+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
 {"timestamp": "2026-03-30T09:38:16.710375+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.011s"}
 {"timestamp": "2026-03-30T09:38:16.710404+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 8 Java classes, 5 XSLT templates, 0 cross-links"}
+{"timestamp": "2026-03-30T10:46:47.013795+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 1 repositories"}
+{"timestamp": "2026-03-30T10:46:47.013999+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5"}
+{"timestamp": "2026-03-30T10:46:47.014878+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 4 Java files, 1 XSLT files", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5"}
+{"timestamp": "2026-03-30T10:46:47.020328+00:00", "level": "DEBUG", "module": "scanner", "message": "Java indexing completed in 0.005s"}
+{"timestamp": "2026-03-30T10:46:47.020360+00:00", "level": "INFO", "module": "scanner", "message": "Java indexing complete: 4 classes indexed"}
+{"timestamp": "2026-03-30T10:46:47.020748+00:00", "level": "DEBUG", "module": "scanner", "message": "XSLT indexing completed in 0.000s"}
+{"timestamp": "2026-03-30T10:46:47.020779+00:00", "level": "INFO", "module": "scanner", "message": "XSLT indexing complete: 4 templates"}
+{"timestamp": "2026-03-30T10:46:47.020870+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
+{"timestamp": "2026-03-30T10:46:47.020897+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.007s"}
+{"timestamp": "2026-03-30T10:46:47.020925+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 4 Java classes, 4 XSLT templates, 0 cross-links"}
+{"timestamp": "2026-03-30T10:46:47.022751+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 1 repositories"}
+{"timestamp": "2026-03-30T10:46:47.022791+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5"}
+{"timestamp": "2026-03-30T10:46:47.023538+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 4 Java files, 1 XSLT files", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_0igbfqz5"}
+{"timestamp": "2026-03-30T10:46:47.028981+00:00", "level": "DEBUG", "module": "scanner", "message": "Java indexing completed in 0.005s"}
+{"timestamp": "2026-03-30T10:46:47.029012+00:00", "level": "INFO", "module": "scanner", "message": "Java indexing complete: 4 classes indexed"}
+{"timestamp": "2026-03-30T10:46:47.029299+00:00", "level": "DEBUG", "module": "scanner", "message": "XSLT indexing completed in 0.000s"}
+{"timestamp": "2026-03-30T10:46:47.029329+00:00", "level": "INFO", "module": "scanner", "message": "XSLT indexing complete: 4 templates"}
+{"timestamp": "2026-03-30T10:46:47.029378+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
+{"timestamp": "2026-03-30T10:46:47.029405+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.007s"}
+{"timestamp": "2026-03-30T10:46:47.029433+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 4 Java classes, 4 XSLT templates, 0 cross-links"}
+{"timestamp": "2026-03-30T10:49:02.842641+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 1 repositories"}
+{"timestamp": "2026-03-30T10:49:02.842845+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d"}
+{"timestamp": "2026-03-30T10:49:02.843728+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 4 Java files, 1 XSLT files", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d"}
+{"timestamp": "2026-03-30T10:49:02.849178+00:00", "level": "DEBUG", "module": "scanner", "message": "Java indexing completed in 0.005s"}
+{"timestamp": "2026-03-30T10:49:02.849210+00:00", "level": "INFO", "module": "scanner", "message": "Java indexing complete: 4 classes indexed"}
+{"timestamp": "2026-03-30T10:49:02.849555+00:00", "level": "DEBUG", "module": "scanner", "message": "XSLT indexing completed in 0.000s"}
+{"timestamp": "2026-03-30T10:49:02.849586+00:00", "level": "INFO", "module": "scanner", "message": "XSLT indexing complete: 4 templates"}
+{"timestamp": "2026-03-30T10:49:02.849674+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
+{"timestamp": "2026-03-30T10:49:02.849702+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.007s"}
+{"timestamp": "2026-03-30T10:49:02.849731+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 4 Java classes, 4 XSLT templates, 0 cross-links"}
+{"timestamp": "2026-03-30T10:49:02.851619+00:00", "level": "INFO", "module": "scanner", "message": "Starting full index for 1 repositories"}
+{"timestamp": "2026-03-30T10:49:02.851663+00:00", "level": "INFO", "module": "scanner", "message": "Scanning repository: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d"}
+{"timestamp": "2026-03-30T10:49:02.852426+00:00", "level": "INFO", "module": "scanner", "message": "Scan complete: 4 Java files, 1 XSLT files", "repository": "/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/synapse_trace_test_jw3grf8d"}
+{"timestamp": "2026-03-30T10:49:02.857525+00:00", "level": "DEBUG", "module": "scanner", "message": "Java indexing completed in 0.005s"}
+{"timestamp": "2026-03-30T10:49:02.857552+00:00", "level": "INFO", "module": "scanner", "message": "Java indexing complete: 4 classes indexed"}
+{"timestamp": "2026-03-30T10:49:02.857815+00:00", "level": "DEBUG", "module": "scanner", "message": "XSLT indexing completed in 0.000s"}
+{"timestamp": "2026-03-30T10:49:02.857845+00:00", "level": "INFO", "module": "scanner", "message": "XSLT indexing complete: 4 templates"}
+{"timestamp": "2026-03-30T10:49:02.857891+00:00", "level": "INFO", "module": "scanner", "message": "Cross-link index built: 0 field links"}
+{"timestamp": "2026-03-30T10:49:02.857917+00:00", "level": "DEBUG", "module": "scanner", "message": "full repository index completed in 0.006s"}
+{"timestamp": "2026-03-30T10:49:02.857944+00:00", "level": "INFO", "module": "scanner", "message": "Index complete: 4 Java classes, 4 XSLT templates, 0 cross-links"}
