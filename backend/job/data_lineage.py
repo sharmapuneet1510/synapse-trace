@@ -993,6 +993,14 @@ class Project:
         # key defaults to the field name; used for all output filenames
         output_key = key or field_name
 
+        # If caller did not supply packages and the project config has only
+        # placeholder wildcards, prompt the user for real package roots.
+        if not deep_scan_packages:
+            cfg_pkgs = self._trace_config.get("trace", {}).get("includePackages", [])
+            placeholder_only = all(p in ("*xxx*", "com.xxx.*") for p in cfg_pkgs)
+            if placeholder_only:
+                deep_scan_packages = _prompt_packages()
+
         deep_scan_packages = deep_scan_packages or []
         extraction         = extraction or [".xslt", ".xsl"]
         transformation     = transformation or [".java"]
@@ -1075,8 +1083,12 @@ class Scanner:
         """
         Scan and index all repositories.
 
-        lib_repos      – shared library / utility repos (indexed, not entry points)
-        project_repos  – main project repos where traces begin
+        lib_repos           – shared library / utility repos (indexed, not entry points)
+        project_repos       – main project repos where traces begin
+        deep_scan_packages  – Java package prefixes to follow deeply, e.g.
+                              ["com.example.*", "org.myapp.*"].
+                              If omitted *and* running in an interactive terminal,
+                              the scanner will prompt for them before indexing.
         """
         lib_repos     = lib_repos or []
         project_repos = project_repos or []
@@ -1085,9 +1097,18 @@ class Scanner:
         if not all_repos:
             raise ValueError("load_project() requires at least one repo path")
 
+        # ── Interactive package prompt ─────────────────────────────────────────
+        # When deep_scan_packages is not provided and we're in a real terminal,
+        # ask the user which package root(s) the deep scanner should follow.
+        # This prevents the scanner from following every third-party call and
+        # keeps traces focused on the application's own code.
+        if not deep_scan_packages:
+            deep_scan_packages = _prompt_packages()
+
         _logger.info(
             f"Loading project: {len(lib_repos)} lib repos, "
-            f"{len(project_repos)} project repos"
+            f"{len(project_repos)} project repos, "
+            f"deep_scan_packages={deep_scan_packages}"
         )
 
         index = self._indexer.index(all_repos)
@@ -1197,6 +1218,50 @@ class _MdExporter:
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _prompt_packages() -> List[str]:
+    """Interactively ask for deep-scan package prefixes when running in a terminal.
+
+    Returns an empty list when stdin is not a TTY (e.g. CI, piped input, API call)
+    so non-interactive callers are never blocked.
+
+    Example session
+    ---------------
+        Deep-scan package roots (comma-separated, e.g. com.myorg.*, org.other.*):
+        > com.nomura.*, com.acme.*
+        → ["com.nomura.*", "com.acme.*"]
+    """
+    import sys
+    if not sys.stdin.isatty():
+        return []
+
+    print()
+    print("┌─────────────────────────────────────────────────────────────────┐")
+    print("│  SYNAPSE-TRACE  —  Deep-scan package configuration             │")
+    print("├─────────────────────────────────────────────────────────────────┤")
+    print("│  Enter the Java package root(s) the tracer should follow.      │")
+    print("│  Only calls into these packages will be recursed into.         │")
+    print("│                                                                 │")
+    print("│  Examples:  com.myorg.*                                        │")
+    print("│             com.myorg.*, org.other.service.*                   │")
+    print("│                                                                 │")
+    print("│  Leave blank to trace ALL packages (slow on large repos).      │")
+    print("└─────────────────────────────────────────────────────────────────┘")
+
+    try:
+        raw = input("  Packages > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return []
+
+    if not raw:
+        return []
+
+    packages = [p.strip() for p in raw.split(",") if p.strip()]
+    print(f"  → deep_scan_packages = {packages}")
+    print()
+    return packages
+
 
 def _default_trace_config() -> Dict[str, Any]:
     return {
