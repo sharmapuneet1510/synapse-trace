@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Lineage Trace: N_SETTLEMENT_DATE</title>
+<style>
+  body { font-family: 'JetBrains Mono', monospace; background:#0f172a; color:#e2e8f0; padding:2rem; }
+  h1 { color:#38bdf8; } h2 { color:#7dd3fc; border-bottom:1px solid #334155; padding-bottom:0.5rem; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; margin-left:8px; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  .node { border-left:4px solid; padding:0.75rem; margin:0.5rem 0; border-radius:4px; background:#1e293b; }
+  .evidence { font-size:0.8rem; color:#94a3b8; margin-top:0.5rem; }
+  .branch { background:#1e293b; border:1px solid #475569; border-radius:8px; padding:1rem; margin:0.5rem 0; }
+  pre { background:#0f172a; padding:0.5rem; border-radius:4px; overflow-x:auto; font-size:0.75rem; color:#a3e635; }
+  .pipeline { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; }
+  .arrow { color:#475569; font-size:1.2rem; }
+</style>
+</head>
+<body>
+<h1>Field Lineage: N_SETTLEMENT_DATE</h1>
+<div class="card">
+  <b>Origin:</b> <span class="badge" style="background:#0284c7">JAVA</span>
+  &nbsp;<b>Nodes:</b> 3
+  &nbsp;<b>Branches:</b> 2
+  &nbsp;<b>XSLT:</b> No
+  &nbsp;<b>Java:</b> Yes
+</div>
+<h2>Technical Explanation</h2>
+<div class="card"><pre>=== Technical Lineage Trace ===
+
+
+[ Java Phase ]
+  1. ClearingService.process() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/clearing/ClearingService.java:4]
+     Type: PASS_THROUGH
+     Conditions: report.setNCleared(trade.isCleared()
+  2. ClearingReport.setNCleared() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/model/ClearingReport.java:4]
+     Type: PASS_THROUGH
+  3. ClearingReport.setNSettlementDate() [/var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/model/ClearingReport.java:5]
+     Type: PASS_THROUGH
+
+[ Branch Analysis – 2 branches ]
+  Branch: [ternary] report.setNCleared(trade.isCleared() == TRUE
+    Outcome: &quot;Y&quot;
+  Branch: [ternary] report.setNCleared(trade.isCleared() == FALSE
+    Outcome: &quot;N&quot;)</pre></div>
+<h2>Business Explanation</h2>
+<div class="card">The field &#x27;N_SETTLEMENT_DATE&#x27; is derived entirely within Java code. It is computed, enriched, or assigned during the Java processing pipeline. The field passes through 3 Java method(s): process, setNCleared, setNSettlementDate. The field value depends on 2 conditional outcome(s). Different business conditions may result in different values being assigned.   • When [ternary] report.setNCleared(trade.isCleared() == TRUE: value is set to &#x27;&quot;Y&quot;&#x27;.   • When [ternary] report.setNCleared(trade.isCleared() == FALSE: value is set to &#x27;&quot;N&quot;)&#x27;.</div>
+<h2>Pipeline (3 steps)</h2>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingService.process()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingService | Method: process | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/clearing/ClearingService.java | Line: 4</div>
+  <pre>ClearingReport report = new ClearingReport();
+        report.setNCleared(trade.isCleared() ? &quot;Y&quot; : &quot;N&quot;);
+        report.setNSettlementDate(trade.getSettlementDate());
+        return report;
+    }</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingReport.setNCleared()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingReport | Method: setNCleared | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/model/ClearingReport.java | Line: 4</div>
+  <pre>this.nCleared = v; }
+    public void setNSettlementDate(String v) { this.nSettlementDate = v; }</pre>
+</div>
+
+<div class="node" style="border-color:#94A3B8">
+  <b>ClearingReport.setNSettlementDate()</b>
+  <span class="badge" style="background:#94A3B8">PASS_THROUGH</span>
+  <div class="evidence">Class: ClearingReport | Method: setNSettlementDate | File: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/dl_test_egfy74z1/src/main/java/com/xxx/model/ClearingReport.java | Line: 5</div>
+  <pre>this.nSettlementDate = v; }</pre>
+</div>
+<h2>Branches (2)</h2>
+
+<div class="branch">
+  <b>Condition:</b> [ternary] report.setNCleared(trade.isCleared() == TRUE<br/>
+  <b>Outcome:</b> &quot;Y&quot;
+</div>
+
+<div class="branch">
+  <b>Condition:</b> [ternary] report.setNCleared(trade.isCleared() == FALSE<br/>
+  <b>Outcome:</b> &quot;N&quot;)
+</div>
+</body></html>

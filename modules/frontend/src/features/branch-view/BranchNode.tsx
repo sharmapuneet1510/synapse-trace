@@ -9,29 +9,103 @@ export function BranchNode({ data, selected }: NodeProps) {
 
   if (isCentral) {
     return (
-      <div className="bg-blue-900/60 border-2 border-blue-500 rounded-full px-4 py-2 text-sm font-bold text-blue-200 text-center min-w-[120px]">
-        {label}
-        <Handle type="source" position={Position.Right} className="!bg-blue-500 !w-2 !h-2" />
-        <Handle type="source" position={Position.Left} className="!bg-blue-500 !w-2 !h-2" id="left" />
-        <Handle type="source" position={Position.Top} className="!bg-blue-500 !w-2 !h-2" id="top" />
-        <Handle type="source" position={Position.Bottom} className="!bg-blue-500 !w-2 !h-2" id="bottom" />
+      <div
+        style={{
+          background: 'var(--bg-surface)',
+          border: '2px solid var(--amber)',
+          borderRadius: '50%',
+          minWidth: 110,
+          minHeight: 110,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 0 0 4px var(--amber-glow), 0 4px 16px rgba(0,0,0,0.1)',
+          cursor: 'default',
+        }}
+      >
+        <span
+          style={{
+            color: 'var(--amber)',
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontWeight: 600,
+            fontSize: '12px',
+            textAlign: 'center',
+            padding: '0 8px',
+          }}
+        >
+          {label}
+        </span>
+        {[Position.Right, Position.Left, Position.Top, Position.Bottom].map((pos, i) => (
+          <Handle
+            key={i}
+            type="source"
+            position={pos}
+            id={pos}
+            style={{ background: 'var(--amber)', width: 6, height: 6, border: 'none' }}
+          />
+        ))}
       </div>
     );
   }
 
   return (
     <div
-      className={`bg-slate-800 border rounded-lg px-3 py-2 min-w-[140px] max-w-[200px] ${
-        selected ? 'border-yellow-500' : 'border-slate-600'
-      }`}
+      style={{
+        background: 'var(--bg-surface)',
+        border: selected ? '1.5px solid var(--coral)' : '1px solid var(--border)',
+        borderLeft: '3px solid var(--coral)',
+        borderRadius: 5,
+        minWidth: 155,
+        maxWidth: 210,
+        boxShadow: selected
+          ? '0 0 0 3px rgba(234,88,12,0.15), 0 4px 12px rgba(0,0,0,0.1)'
+          : '0 1px 4px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
+        transition: 'all 0.15s',
+      }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-slate-500 !w-2 !h-2" />
-      <div className="text-[10px] text-slate-500 mb-1">Condition:</div>
-      <div className="text-xs text-yellow-300 font-mono leading-tight">{condition}</div>
-      {outcome && (
-        <div className="mt-1.5 text-[10px] text-emerald-400 font-semibold">→ {outcome}</div>
-      )}
-      <Handle type="source" position={Position.Right} className="!bg-slate-500 !w-2 !h-2" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ background: 'var(--coral)', width: 6, height: 6, border: 'none', left: -3 }}
+      />
+
+      <div style={{ height: 1.5, background: 'var(--coral)', opacity: selected ? 1 : 0.4 }} />
+
+      <div style={{ padding: '8px 10px' }}>
+        <span className="label-tag" style={{ color: 'var(--coral)', fontSize: '9px' }}>CONDITION</span>
+        <div
+          style={{
+            color: selected ? '#111827' : 'var(--text-secondary)',
+            fontSize: '10px',
+            fontFamily: "'IBM Plex Mono', monospace",
+            lineHeight: 1.4,
+            marginTop: 4,
+            wordBreak: 'break-word',
+          }}
+        >
+          {condition}
+        </div>
+        {outcome && (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: '9px',
+              color: 'var(--emerald)',
+              fontFamily: "'IBM Plex Mono', monospace",
+              lineHeight: 1.4,
+            }}
+          >
+            → {outcome}
+          </div>
+        )}
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ background: 'var(--coral)', width: 6, height: 6, border: 'none', right: -3 }}
+      />
     </div>
   );
 }

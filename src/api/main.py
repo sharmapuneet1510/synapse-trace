@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import CORS_ORIGINS, JURISDICTION_JSON
 from .database import init_db
 from .logging_config import setup_logging
-from .routers import chat, dashboard, fields, jurisdictions, llm, parse, trace, translation, xpath
+from .routers import chat, dashboard, fields, jurisdictions, lineage, llm, parse, trace, translation, xpath
 from .services import jurisdiction_service
 
 # Configure logging before anything else so all module-level loggers inherit it
@@ -72,6 +72,7 @@ app.include_router(dashboard.router)
 app.include_router(chat.router)
 app.include_router(llm.router)
 app.include_router(trace.router)
+app.include_router(lineage.router)
 
 
 @app.get("/api/health")

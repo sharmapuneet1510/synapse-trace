@@ -1,3 +1,7 @@
 existing_project
 src/__pycache__
 src/api/models/__pycache__
+*.log
+.idea/**
+.claude/**
+logs/**

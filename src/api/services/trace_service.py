@@ -13,8 +13,32 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from orchestrator.stitcher import _build_match_keys  # noqa: E402
-from orchestrator.models import LineageNode, StitchedLineage  # noqa: E402
+def _build_match_keys(field_name: str) -> set:  # noqa: E402
+    if not field_name:
+        return set()
+    name = field_name.upper().strip()
+    keys = {name}
+    for prefix in ("N_", "B_", "S_", "I_", "D_"):
+        if name.startswith(prefix):
+            keys.add(name[len(prefix):])
+    keys.add(name.replace("_", ""))
+    return {k for k in keys if k}
+
+
+from dataclasses import dataclass as _dc, field as _dcf  # noqa: E402
+from typing import Any as _Any, List as _List  # noqa: E402
+
+@_dc
+class LineageNode:
+    id: str = ""
+    label: str = ""
+    node_type: str = ""
+    meta: _Any = None
+
+@_dc
+class StitchedLineage:
+    nodes: _List[LineageNode] = _dcf(default_factory=list)
+    edges: _List[_Any] = _dcf(default_factory=list)
 
 from ..schemas.trace import TraceEdge, TraceNode, TraceResponse  # noqa: E402
 from .cache import parse_cache  # noqa: E402

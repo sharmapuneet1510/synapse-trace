@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Settings } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { traceApi } from '../../api/traceApi';
-import { Spinner } from '../../components/ui/Spinner';
 
 export function ConfigPanel() {
   const { configOpen, setConfigOpen, config, setConfig } = useAppStore();
@@ -34,76 +33,142 @@ export function ConfigPanel() {
   if (!configOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-[480px] max-h-[80vh] flex flex-col shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
-          <span className="text-sm font-semibold text-slate-200">Trace Configuration</span>
-          <button onClick={() => setConfigOpen(false)} className="text-slate-500 hover:text-slate-300">
-            <X size={16} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) setConfigOpen(false); }}
+    >
+      <div
+        className="flex flex-col animate-fade-up"
+        style={{
+          width: 500,
+          maxHeight: '80vh',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderTop: '2px solid var(--amber)',
+          borderRadius: 6,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-3.5 shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              style={{
+                width: 26, height: 26,
+                background: 'var(--amber-glow)',
+                border: '1px solid rgba(245,166,35,0.3)',
+                borderRadius: 4,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Settings size={12} style={{ color: 'var(--amber)' }} />
+            </div>
+            <span className="label-heading" style={{ color: 'var(--text-primary)', fontSize: '11px' }}>
+              TRACE CONFIGURATION
+            </span>
+          </div>
+          <button
+            onClick={() => setConfigOpen(false)}
+            className="flex items-center justify-center"
+            style={{ width: 26, height: 26, borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+          >
+            <X size={12} />
           </button>
         </div>
 
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           {loading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
+            <div className="flex justify-center items-center py-12 gap-3"
+              style={{ color: 'var(--text-muted)' }}>
+              <div
+                style={{
+                  width: 20, height: 20,
+                  border: '1.5px solid var(--border-bright)',
+                  borderTopColor: 'var(--amber)',
+                  borderRadius: '50%',
+                }}
+                className="animate-spin"
+              />
+              <span style={{ fontSize: '11px' }}>Loading config…</span>
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               <ConfigField
-                label="Max Depth"
+                label="MAX DEPTH"
                 type="number"
                 value={String(local.maxDepth ?? 20)}
+                hint="Maximum call chain depth to follow (1–50)"
                 onChange={(v) => setLocal({ ...local, maxDepth: parseInt(v) || 20 })}
               />
               <ConfigToggle
-                label="Follow Internal Calls Only"
+                label="FOLLOW INTERNAL CALLS ONLY"
                 checked={Boolean(local.followInternalCallsOnly)}
                 onChange={(v) => setLocal({ ...local, followInternalCallsOnly: v })}
               />
               <ConfigToggle
-                label="Enable Condition Tracing"
+                label="ENABLE CONDITION TRACING"
                 checked={Boolean(local.enableConditionTracing)}
                 onChange={(v) => setLocal({ ...local, enableConditionTracing: v })}
               />
               <ConfigToggle
-                label="Enable XSLT Imports"
+                label="ENABLE XSLT IMPORTS"
                 checked={Boolean(local.enableXsltImports)}
                 onChange={(v) => setLocal({ ...local, enableXsltImports: v })}
               />
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Include Packages (one per line)</label>
-                <textarea
-                  rows={3}
-                  value={(local.includePackages as string[] || []).join('\n')}
-                  onChange={(e) => setLocal({ ...local, includePackages: e.target.value.split('\n').filter(Boolean) })}
-                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xs font-mono text-slate-200
-                             focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Exclude Packages (one per line)</label>
-                <textarea
-                  rows={3}
-                  value={(local.excludePackages as string[] || []).join('\n')}
-                  onChange={(e) => setLocal({ ...local, excludePackages: e.target.value.split('\n').filter(Boolean) })}
-                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xs font-mono text-slate-200
-                             focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
+              <ConfigTextArea
+                label="INCLUDE PACKAGES"
+                hint="Java packages to deep-scan (one per line)"
+                value={(local.includePackages as string[] || []).join('\n')}
+                onChange={(v) => setLocal({ ...local, includePackages: v.split('\n').filter(Boolean) })}
+              />
+              <ConfigTextArea
+                label="EXCLUDE PACKAGES"
+                hint="Packages to skip (one per line)"
+                value={(local.excludePackages as string[] || []).join('\n')}
+                onChange={(v) => setLocal({ ...local, excludePackages: v.split('\n').filter(Boolean) })}
+              />
             </div>
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-slate-700 flex justify-end gap-3">
-          <button onClick={() => setConfigOpen(false)} className="text-sm text-slate-400 hover:text-slate-200 px-3 py-1.5">
-            Cancel
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-2.5 px-5 py-3.5 shrink-0"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button
+            onClick={() => setConfigOpen(false)}
+            className="st-btn-ghost"
+          >
+            CANCEL
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded
-                       disabled:bg-slate-700 disabled:text-slate-500 transition-colors"
+            className="st-btn-primary"
+            style={{ opacity: saving ? 0.5 : 1 }}
           >
-            {saving ? <Spinner size="sm" /> : <Save size={14} />} Save
+            {saving ? (
+              <>
+                <div
+                  style={{
+                    width: 10, height: 10,
+                    border: '1.5px solid transparent',
+                    borderTopColor: 'currentColor',
+                    borderRadius: '50%',
+                  }}
+                  className="animate-spin"
+                />
+                SAVING…
+              </>
+            ) : (
+              <><Save size={11} /> SAVE CONFIG</>
+            )}
           </button>
         </div>
       </div>
@@ -111,30 +176,86 @@ export function ConfigPanel() {
   );
 }
 
-function ConfigField({ label, type, value, onChange }: { label: string; type: string; value: string; onChange: (v: string) => void }) {
+function ConfigField({
+  label, type, value, hint, onChange,
+}: {
+  label: string; type: string; value: string; hint?: string; onChange: (v: string) => void;
+}) {
   return (
     <div>
-      <label className="text-xs text-slate-500 mb-1.5 block">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200
-                   focus:outline-none focus:border-blue-500"
-      />
+      <label className="label-heading block mb-1.5" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+        {label}
+      </label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="st-input" />
+      {hint && (
+        <p style={{ marginTop: 4, fontSize: '10px', color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
 
-function ConfigToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function ConfigTextArea({
+  label, hint, value, onChange,
+}: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-slate-400">{label}</span>
+    <div>
+      <label className="label-heading block mb-1.5" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+        {label}
+      </label>
+      <textarea
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="st-input"
+        style={{ resize: 'none', fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px' }}
+      />
+      {hint && (
+        <p style={{ marginTop: 4, fontSize: '10px', color: 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ConfigToggle({
+  label, checked, onChange,
+}: {
+  label: string; checked: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between py-2"
+      style={{ borderBottom: '1px solid var(--border)' }}
+    >
+      <span className="label-tag" style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>{label}</span>
       <button
         onClick={() => onChange(!checked)}
-        className={`w-10 h-5 rounded-full transition-colors relative ${checked ? 'bg-blue-600' : 'bg-slate-600'}`}
+        style={{
+          width: 36, height: 20,
+          borderRadius: 10,
+          background: checked ? 'var(--amber)' : 'var(--bg-elevated)',
+          border: checked ? 'none' : '1px solid var(--border-bright)',
+          position: 'relative',
+          transition: 'background 0.2s',
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
       >
-        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : ''}`} />
+        <span
+          style={{
+            position: 'absolute',
+            top: 2, left: checked ? 18 : 2,
+            width: 14, height: 14,
+            borderRadius: '50%',
+            background: checked ? '#06080f' : 'var(--text-muted)',
+            transition: 'left 0.15s',
+          }}
+        />
       </button>
     </div>
   );

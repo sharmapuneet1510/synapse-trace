@@ -12,11 +12,53 @@ logger = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from orchestrator.models import JavaFinding, XsltFinding  # noqa: E402
-from orchestrator.parsers.java_parser import JavaParser  # noqa: E402
-from orchestrator.parsers.xslt_parser import XsltParser  # noqa: E402
-from orchestrator.scanner import ModuleScanner  # noqa: E402
-from orchestrator.stitcher import Stitcher  # noqa: E402
+# Stub classes — old orchestrator module was removed; parse_service is deprecated
+from dataclasses import dataclass as _dc, field as _dcf
+from typing import Any as _Any, List as _List, Optional as _Opt
+
+@_dc
+class JavaFinding:
+    field_name: str = ""
+    target_field: str = ""
+    class_name: str = ""
+    method_name: str = ""
+    finding_type: str = ""
+    meta: _Any = None
+
+@_dc
+class XsltFinding:
+    field_source: str = ""
+    field_target: str = ""
+    template_name: str = ""
+    meta: _Any = None
+
+class JavaParser:
+    def __init__(self, repo_name=""): pass
+    def parse_file(self, path): return []
+
+class XsltParser:
+    def __init__(self, repo_name=""): pass
+    def parse_file(self, path): return []
+
+@_dc
+class _Module:
+    java_files: _List = _dcf(default_factory=list)
+    xslt_files: _List = _dcf(default_factory=list)
+
+@_dc
+class _Project:
+    modules: _List[_Module] = _dcf(default_factory=list)
+
+class ModuleScanner:
+    def scan_project(self, path, name=""): return _Project()
+
+@_dc
+class _StitchedLineage:
+    nodes: _List = _dcf(default_factory=list)
+    edges: _List = _dcf(default_factory=list)
+
+class Stitcher:
+    def stitch(self, java_findings, xslt_findings): return _StitchedLineage()
 
 from ..schemas.jurisdiction import JurisdictionConfig  # noqa: E402
 from .cache import JurisdictionCache, parse_cache  # noqa: E402

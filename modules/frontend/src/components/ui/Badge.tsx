@@ -1,20 +1,20 @@
 import React from 'react';
-import type { TransformationType, OriginType } from '../../types/trace';
 
-const TYPE_STYLES: Record<string, string> = {
-  EXTRACTION: 'bg-blue-900/60 text-blue-300 border-blue-700',
-  MAPPING: 'bg-purple-900/60 text-purple-300 border-purple-700',
-  ENRICHMENT: 'bg-emerald-900/60 text-emerald-300 border-emerald-700',
-  OVERRIDE: 'bg-orange-900/60 text-orange-300 border-orange-700',
-  DEFAULTING: 'bg-slate-700/60 text-slate-300 border-slate-600',
-  PASS_THROUGH: 'bg-slate-800/60 text-slate-400 border-slate-600',
-  CONDITIONAL_ASSIGNMENT: 'bg-yellow-900/60 text-yellow-300 border-yellow-700',
-  FINAL_REPORT_ASSIGNMENT: 'bg-red-900/60 text-red-300 border-red-700',
-  XSLT: 'bg-teal-900/60 text-teal-300 border-teal-700',
-  JAVA: 'bg-indigo-900/60 text-indigo-300 border-indigo-700',
-  XSLT_THEN_JAVA: 'bg-violet-900/60 text-violet-300 border-violet-700',
-  UNKNOWN: 'bg-slate-800/60 text-slate-400 border-slate-600',
+const PRESET: Record<string, { color: string; bg: string; border: string }> = {
+  XSLT:                    { color: '#a78bfa', bg: 'rgba(167,139,250,0.1)',  border: 'rgba(167,139,250,0.25)' },
+  JAVA:                    { color: '#22d3ee', bg: 'rgba(34,211,238,0.08)',  border: 'rgba(34,211,238,0.2)' },
+  XSLT_THEN_JAVA:          { color: '#f5a623', bg: 'rgba(245,166,35,0.1)',   border: 'rgba(245,166,35,0.25)' },
+  EXTRACTION:              { color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)' },
+  MAPPING:                 { color: '#22d3ee', bg: 'rgba(34,211,238,0.06)',  border: 'rgba(34,211,238,0.18)' },
+  ENRICHMENT:              { color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)' },
+  OVERRIDE:                { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)' },
+  DEFAULTING:              { color: '#64748b', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.2)' },
+  PASS_THROUGH:            { color: '#475569', bg: 'rgba(71,85,105,0.08)',   border: 'rgba(71,85,105,0.2)' },
+  CONDITIONAL_ASSIGNMENT:  { color: '#ff6b35', bg: 'rgba(255,107,53,0.08)', border: 'rgba(255,107,53,0.2)' },
+  FINAL_REPORT_ASSIGNMENT: { color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)' },
+  UNKNOWN:                 { color: '#3d5275', bg: 'rgba(61,82,117,0.08)',   border: 'rgba(61,82,117,0.2)' },
 };
+const DEFAULT_CFG = { color: '#8b9dc3', bg: 'rgba(139,157,195,0.06)', border: 'rgba(139,157,195,0.18)' };
 
 interface BadgeProps {
   label: string;
@@ -22,9 +22,12 @@ interface BadgeProps {
 }
 
 export function Badge({ label, className = '' }: BadgeProps) {
-  const style = TYPE_STYLES[label] || 'bg-slate-700/60 text-slate-300 border-slate-600';
+  const cfg = PRESET[label.toUpperCase()] || DEFAULT_CFG;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${style} ${className}`}>
+    <span
+      className={`label-tag px-1.5 py-0.5 rounded ${className}`}
+      style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, display: 'inline-block' }}
+    >
       {label}
     </span>
   );

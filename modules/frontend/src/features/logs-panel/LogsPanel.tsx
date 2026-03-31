@@ -3,13 +3,13 @@ import { Trash2, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { traceApi } from '../../api/traceApi';
 
-const LEVEL_STYLES: Record<string, string> = {
-  ERROR: 'text-red-400',
-  WARN: 'text-yellow-400',
-  WARNING: 'text-yellow-400',
-  INFO: 'text-blue-400',
-  DEBUG: 'text-slate-500',
-  TRACE: 'text-slate-600',
+const LEVEL_COLORS: Record<string, string> = {
+  ERROR:   '#f87171',
+  WARN:    '#f59e0b',
+  WARNING: '#f59e0b',
+  INFO:    '#22d3ee',
+  DEBUG:   '#3d5275',
+  TRACE:   '#253550',
 };
 
 export function LogsPanel() {
@@ -28,37 +28,90 @@ export function LogsPanel() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-950">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800 shrink-0">
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-          Trace Logs ({logs.length})
-        </span>
-        <div className="flex gap-1">
-          <button onClick={handleRefresh} className="p-1 text-slate-600 hover:text-slate-400 transition-colors">
-            <RefreshCw size={11} />
+    <div className="h-full flex flex-col" style={{ background: 'var(--bg-base)' }}>
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-3 py-1.5 shrink-0"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
+        <div className="flex items-center gap-2">
+          <div className="status-dot green" />
+          <span className="label-heading" style={{ color: 'var(--text-muted)', fontSize: '9px' }}>
+            TRACE LOGS
+          </span>
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+            }}
+          >
+            ({logs.length})
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleRefresh}
+            className="flex items-center justify-center transition-colors"
+            style={{ width: 22, height: 22, borderRadius: 3, color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--amber)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--text-muted)')}
+          >
+            <RefreshCw size={10} />
           </button>
-          <button onClick={clearLogs} className="p-1 text-slate-600 hover:text-slate-400 transition-colors">
-            <Trash2 size={11} />
+          <button
+            onClick={clearLogs}
+            className="flex items-center justify-center transition-colors"
+            style={{ width: 22, height: 22, borderRadius: 3, color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--red)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'var(--text-muted)')}
+          >
+            <Trash2 size={10} />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto font-mono">
+      {/* Log stream */}
+      <div className="flex-1 overflow-y-auto" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
         {logs.length === 0 ? (
-          <div className="text-[10px] text-slate-600 text-center py-4">No logs yet — run a trace</div>
+          <div
+            style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', padding: '14px 0' }}
+          >
+            No logs yet — run a trace
+          </div>
         ) : (
           logs.map((log, i) => {
-            const levelStyle = LEVEL_STYLES[(log.level || '').toUpperCase()] || 'text-slate-500';
+            const level = (log.level || '').toUpperCase();
+            const color = LEVEL_COLORS[level] || 'var(--text-muted)';
             return (
-              <div key={i} className="flex gap-2 px-3 py-0.5 hover:bg-slate-900 border-b border-slate-900">
-                <span className="text-[9px] text-slate-600 shrink-0 w-20 truncate">
+              <div
+                key={i}
+                className="flex gap-3 px-3 py-0.5 transition-colors"
+                style={{ borderBottom: '1px solid #090d1899' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+              >
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)', flexShrink: 0, width: 64 }}>
                   {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}
                 </span>
-                <span className={`text-[10px] font-semibold shrink-0 w-12 ${levelStyle}`}>
-                  {(log.level || '').toUpperCase()}
+                <span
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: 600,
+                    color,
+                    flexShrink: 0,
+                    width: 40,
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  {level}
                 </span>
-                <span className="text-[9px] text-slate-600 shrink-0 w-16 truncate">{log.module}</span>
-                <span className="text-[10px] text-slate-400 truncate">{log.message}</span>
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)', flexShrink: 0, width: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {log.module}
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {log.message}
+                </span>
               </div>
             );
           })

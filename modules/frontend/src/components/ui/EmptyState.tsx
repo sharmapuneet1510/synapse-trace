@@ -9,10 +9,15 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500 p-8">
-      <div className="text-slate-600">{icon || <GitBranch size={48} />}</div>
-      <p className="text-sm font-semibold text-slate-400">{title}</p>
-      {description && <p className="text-xs text-center max-w-xs">{description}</p>}
+    <div className="flex flex-col items-center justify-center h-full gap-3 p-8"
+      style={{ color: 'var(--text-muted)' }}>
+      <div style={{ opacity: 0.3 }}>{icon || <GitBranch size={40} />}</div>
+      <span className="label-heading" style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{title}</span>
+      {description && (
+        <p style={{ fontSize: '11px', textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
+          {description}
+        </p>
+      )}
     </div>
   );
 }

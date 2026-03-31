@@ -11,7 +11,16 @@ from ..schemas.field import XPathEntry
 
 # Import stitcher's canonical key builder
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from orchestrator.stitcher import _build_match_keys  # noqa: E402
+def _build_match_keys(field_name: str) -> set:  # noqa: E402
+    if not field_name:
+        return set()
+    name = field_name.upper().strip()
+    keys = {name}
+    for prefix in ("N_", "B_", "S_", "I_", "D_"):
+        if name.startswith(prefix):
+            keys.add(name[len(prefix):])
+    keys.add(name.replace("_", ""))
+    return {k for k in keys if k}
 
 logger = logging.getLogger(__name__)
 

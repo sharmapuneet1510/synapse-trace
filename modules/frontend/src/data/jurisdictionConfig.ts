@@ -1,0 +1,102 @@
+export const JURISDICTION_CONFIG: Record<string, Record<string, string[]>> = {
+  EMIR: {
+    TradeState: [
+      'N_CLEARED', 'TRADE_STATUS', 'REPORTING_FLAG', 'COUNTERPARTY_ID',
+      'TRADE_TYPE', 'PRODUCT_CLASS', 'MATURITY_DATE', 'NOTIONAL_AMOUNT',
+      'LEI_COUNTERPARTY', 'EXECUTION_VENUE', 'COLLATERAL_PORTFOLIO_CODE',
+      'CLEARING_THRESHOLD', 'HEDGING_INDICATOR', 'PORTFOLIO_COMPRESSION',
+      'CONFIRMATION_TIMESTAMP', 'BILATERAL_COLLATERAL_FLAG',
+      'INTRAGROUP_FLAG', 'PENSION_FUND_EXEMPTION',
+    ],
+    Valuation: [
+      'MARK_TO_MARKET', 'COLLATERAL_VALUE', 'INITIAL_MARGIN',
+      'VARIATION_MARGIN', 'NPV', 'DELTA_RISK', 'GAMMA_RISK',
+      'CURRENCY', 'VALUATION_DATE', 'VALUATION_METHOD',
+      'COLLATERAL_CURRENCY', 'EXCESS_COLLATERAL', 'VALUATION_TIMESTAMP',
+    ],
+  },
+  CFTC: {
+    TradeState: [
+      'N_CLEARED', 'SEF_EXECUTED', 'BLOCK_TRADE', 'LARGE_NOTIONAL',
+      'REPORTING_PARTY', 'COUNTERPARTY_LEI', 'UNIQUE_SWAP_ID',
+      'PLATFORM_ID', 'CONFIRMATION_TIMESTAMP', 'CLEARING_EXEMPTION',
+      'END_USER_EXCEPTION', 'INTER_AFFILIATE_FLAG', 'SWAP_DEALER_FLAG',
+      'MAJOR_SWAP_PARTICIPANT', 'REPORTING_SIDE',
+    ],
+    Valuation: [
+      'DAILY_MARK', 'COLLATERAL_POSTED', 'COLLATERAL_RECEIVED',
+      'NET_EXPOSURE', 'REPLACEMENT_COST', 'MARK_CURRENCY',
+      'MARK_DATE', 'CREDIT_SUPPORT_AMOUNT', 'VARIATION_MARGIN_POSTED',
+    ],
+  },
+  'MiFID II': {
+    TradeState: [
+      'TRADING_VENUE', 'EXECUTION_TIMESTAMP', 'INSTRUMENT_ISIN',
+      'QUANTITY', 'PRICE', 'WAIVER_INDICATOR', 'TRANSACTION_REF_NUM',
+      'INVESTMENT_DECISION_WITHIN_FIRM', 'ALGO_TRADING_FLAG',
+      'LIQUIDITY_FLAG', 'POST_TRADE_DEFERRAL', 'SYSTEMATIC_INTERNALISER',
+      'OTC_POST_TRADE_INDICATOR', 'COMMODITY_DERIVATIVE_FLAG',
+    ],
+    Valuation: [
+      'TRANSACTION_VALUE', 'PRICE_NOTATION', 'NOTIONAL_CURRENCY',
+      'SETTLEMENT_DATE', 'DELIVERY_TYPE', 'BENCHMARK_RATE',
+      'PRICE_MULTIPLIER', 'TOTAL_CONSIDERATION',
+    ],
+  },
+  ASIC: {
+    TradeState: [
+      'N_CLEARED', 'REPORTING_ENTITY', 'PRODUCT_TYPE', 'ASSET_CLASS',
+      'TRADE_CONFIRMATION_TYPE', 'COMPRESSION_FLAG', 'VENUE_TYPE',
+      'COUNTERPARTY_TYPE', 'UNIQUE_TRADE_IDENTIFIER', 'AUSTRALIAN_PERSON_FLAG',
+    ],
+    Valuation: [
+      'CONTRACT_VALUE', 'NOTIONAL_VALUE', 'MARK_TO_MARKET_VALUE',
+      'COLLATERAL_AMOUNT', 'SETTLEMENT_PRICE', 'MARK_CURRENCY',
+    ],
+  },
+  JFSA: {
+    TradeState: [
+      'N_CLEARED', 'COUNTERPARTY_TYPE', 'PRODUCT_CLASSIFICATION',
+      'TRADE_DATE', 'NOTIONAL', 'CLEARING_OBLIGATION_FLAG',
+      'REPORTING_COUNTERPARTY', 'FINANCIAL_NATURE',
+      'JAPANESE_PERSON_FLAG', 'DESIGNATED_CONTRACT_MARKET',
+    ],
+    Valuation: [
+      'MARKET_VALUE', 'COLLATERAL_AMOUNT', 'CREDIT_SUPPORT_AMOUNT',
+      'MARK_DATE', 'CURRENCY', 'DAILY_SETTLEMENT_PRICE',
+    ],
+  },
+  MAS: {
+    TradeState: [
+      'N_CLEARED', 'REPORTING_ENTITY_TYPE', 'SPECIFIED_PERSON_FLAG',
+      'PRODUCT_TYPE', 'ASSET_CLASS', 'TRADE_TYPE',
+      'CLEARING_MEMBER_LEI', 'UTI', 'EXECUTION_VENUE_TYPE',
+    ],
+    Valuation: [
+      'MARK_TO_MARKET', 'INITIAL_MARGIN_SGD', 'VARIATION_MARGIN_SGD',
+      'COLLATERAL_POSTED', 'SETTLEMENT_CURRENCY',
+    ],
+  },
+};
+
+export const JURISDICTIONS = Object.keys(JURISDICTION_CONFIG);
+export const FIELD_TYPES = ['TradeState', 'Valuation'] as const;
+export type FieldType = (typeof FIELD_TYPES)[number];
+
+export function getFieldsForSelection(
+  jurisdictions: string[],
+  fieldTypes: string[],
+): string[] {
+  const fieldSet = new Set<string>();
+  const types = fieldTypes.length > 0 ? fieldTypes : [...FIELD_TYPES];
+  for (const jur of jurisdictions) {
+    const config = JURISDICTION_CONFIG[jur];
+    if (!config) continue;
+    for (const ft of types) {
+      for (const field of config[ft] ?? []) {
+        fieldSet.add(field);
+      }
+    }
+  }
+  return Array.from(fieldSet).sort();
+}
