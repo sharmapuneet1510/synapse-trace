@@ -75,7 +75,8 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from typing import List, Optional, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Optional, Dict, Any, Tuple
 
 # ── core modules ─────────────────────────────────────────────────────────────
 import sys
@@ -170,6 +171,7 @@ class Graph:
         self._result = result
         # The key drives output filenames; defaults to the traced field name.
         self._key = (key or result.field_name).upper()
+        self._html_exporter = HtmlExporter()  # reused across all export calls
 
     # ── Key ───────────────────────────────────────────────────────────────────
 
@@ -192,6 +194,61 @@ class Graph:
 
     # ── File exports ──────────────────────────────────────────────────────────
 
+    # ── Shared helpers ────────────────────────────────────────────────────────
+
+    def _build_module_stages(self) -> Tuple[List[Dict], List[Dict], Dict[str, int]]:
+        """Build (stages, flow_edges, node_to_stage) used by both process-flow exports.
+
+        Each *stage* represents one module; *flow_edges* are cross-module edges.
+        Built once; call site can reuse the result for JSON *and* HTML rendering
+        without iterating over nodes twice.
+        """
+        stages: List[Dict] = []
+        stage_index: Dict[str, int] = {}
+
+        def _module_key(node) -> str:
+            ev = node.evidence
+            if ev.module:
+                return ev.module
+            if ev.file_path:
+                return os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1]
+            return "unknown"
+
+        for node in self._result.nodes:
+            mk = _module_key(node)
+            if mk not in stage_index:
+                stage_index[mk] = len(stages) + 1
+                stages.append({
+                    "stage":          stage_index[mk],
+                    "module":         mk,
+                    "file":           node.evidence.file_path or "",
+                    "transformation": node.transformation_type.value if node.transformation_type else "UNKNOWN",
+                    "nodes":          [],
+                })
+            stages[stage_index[mk] - 1]["nodes"].append(node.label)
+
+        node_to_stage: Dict[str, int] = {
+            node.node_id: stage_index.get(_module_key(node), 0)
+            for node in self._result.nodes
+        }
+
+        seen: set = set()
+        flow_edges: List[Dict] = []
+        for edge in self._result.edges:
+            s = node_to_stage.get(edge.source_id, 0)
+            t = node_to_stage.get(edge.target_id, 0)
+            if s != t and (s, t) not in seen:
+                seen.add((s, t))
+                flow_edges.append({
+                    "from_stage": s,
+                    "to_stage":   t,
+                    "from":       s,
+                    "to":         t,
+                    "relation":   edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation),
+                })
+
+        return stages, flow_edges, node_to_stage
+
     def to_html(self, output_dir: Optional[str] = None) -> str:
         """Save the full lineage report to ``<output_dir>/{KEY}.html``.
 
@@ -199,7 +256,7 @@ class Graph:
         """
         out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}.html")
-        content = HtmlExporter().export(
+        content = self._html_exporter.export(
             self._result.summary,
             self._result.nodes,
             self._result.branches,
@@ -262,50 +319,7 @@ class Graph:
         out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}.process_flow.json")
 
-        # Group nodes by module — use evidence.module, fallback to file path dir
-        stages: List[Dict] = []
-        stage_index: Dict[str, int] = {}   # module_key → stage number
-        for node in self._result.nodes:
-            ev = node.evidence
-            module_key = (
-                ev.module
-                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
-                or "unknown"
-            )
-            if module_key not in stage_index:
-                stage_index[module_key] = len(stages) + 1
-                stages.append({
-                    "stage":          stage_index[module_key],
-                    "module":         module_key,
-                    "file":           ev.file_path or "",
-                    "transformation": node.transformation_type.value if node.transformation_type else "UNKNOWN",
-                    "nodes":          [],
-                })
-            stages[stage_index[module_key] - 1]["nodes"].append(node.label)
-
-        # Build cross-module edges from the trace edges
-        flow_edges = []
-        node_to_stage: Dict[str, int] = {}
-        for node in self._result.nodes:
-            ev = node.evidence
-            module_key = (
-                ev.module
-                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
-                or "unknown"
-            )
-            node_to_stage[node.node_id] = stage_index.get(module_key, 0)
-
-        seen_flow_edges: set = set()
-        for edge in self._result.edges:
-            src_stage = node_to_stage.get(edge.source_id, 0)
-            tgt_stage = node_to_stage.get(edge.target_id, 0)
-            if src_stage != tgt_stage and (src_stage, tgt_stage) not in seen_flow_edges:
-                seen_flow_edges.add((src_stage, tgt_stage))
-                flow_edges.append({
-                    "from_stage": src_stage,
-                    "to_stage":   tgt_stage,
-                    "relation":   edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation),
-                })
+        stages, flow_edges, _ = self._build_module_stages()
 
         payload = {
             "field":    self._key,
@@ -340,43 +354,7 @@ class Graph:
         import html as _html
         import json as _json
 
-        # Build process-flow JSON payload (reuse logic without writing the file)
-        stages: List[Dict] = []
-        stage_index: Dict[str, int] = {}
-        for node in self._result.nodes:
-            ev = node.evidence
-            module_key = (
-                ev.module
-                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
-                or "unknown"
-            )
-            if module_key not in stage_index:
-                stage_index[module_key] = len(stages) + 1
-                stages.append({
-                    "stage":          stage_index[module_key],
-                    "module":         module_key,
-                    "transformation": node.transformation_type.value if node.transformation_type else "UNKNOWN",
-                    "nodes":          [],
-                })
-            stages[stage_index[module_key] - 1]["nodes"].append(node.label)
-
-        node_to_stage: Dict[str, int] = {}
-        for node in self._result.nodes:
-            ev = node.evidence
-            module_key = (
-                ev.module
-                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
-                or "unknown"
-            )
-            node_to_stage[node.node_id] = stage_index.get(module_key, 0)
-
-        seen: set = set()
-        flow_edges = []
-        for edge in self._result.edges:
-            s, t = node_to_stage.get(edge.source_id, 0), node_to_stage.get(edge.target_id, 0)
-            if s != t and (s, t) not in seen:
-                seen.add((s, t))
-                flow_edges.append({"from": s, "to": t})
+        stages, flow_edges, _ = self._build_module_stages()
 
         _TYPE_COLORS_LOCAL = {
             "EXTRACTION":              "#7c3aed",
@@ -492,24 +470,59 @@ class Graph:
         Returns a dict mapping label → absolute file path for every file written.
         """
         d = self._out_dir(output_dir)
-        paths = {
-            "html":              self.to_html(d),
-            "graph_html":        self._write_graph_html(d),
-            "md":                self.to_md(d),
-            "json":              self.to_json(d),
-            "cypher":            self.to_neo4j(d),
-            "process_flow_html": self.to_process_flow_html(d),
-            "process_flow_json": self.to_process_flow_json(d),
+
+        # Pre-compute module stages once so all three process-flow methods
+        # share the same in-memory result (avoids triple node iteration).
+        stages, flow_edges, node_to_stage = self._build_module_stages()
+        _pf_cache = (stages, flow_edges, node_to_stage)
+
+        def _pf_json() -> str:
+            payload = {
+                "field":    self._key,
+                "origin":   self._result.summary.origin.value,
+                "stages":   stages,
+                "edges":    [{"from_stage": e["from_stage"], "to_stage": e["to_stage"],
+                               "relation": e["relation"]} for e in flow_edges],
+                "branches": [{"branch_id": b.branch_id, "condition": b.condition,
+                               "outcome": b.outcome} for b in self._result.branches],
+                "metadata": self._result.metadata,
+            }
+            path = os.path.join(d, f"{self._key}.process_flow.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2, default=str)
+            return path
+
+        tasks = {
+            "html":              lambda: self.to_html(d),
+            "graph_html":        lambda: self._write_graph_html(d),
+            "md":                lambda: self.to_md(d),
+            "json":              lambda: self.to_json(d),
+            "cypher":            lambda: self.to_neo4j(d),
+            "process_flow_html": lambda: self.to_process_flow_html(d),
+            "process_flow_json": _pf_json,
         }
-        _logger.info(
-            f"to_all() complete for '{self._key}': {len(paths)} files in {d}"
-        )
+
+        paths: Dict[str, str] = {}
+        errors: List[str] = []
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(fn): label for label, fn in tasks.items()}
+            for fut in as_completed(futures):
+                label = futures[fut]
+                try:
+                    paths[label] = fut.result()
+                except Exception as exc:
+                    errors.append(label)
+                    _logger.error(f"to_all(): '{label}' failed: {exc}", exc_info=True)
+
+        if errors:
+            _logger.warning(f"to_all() completed with errors in: {errors}")
+        _logger.info(f"to_all() complete for '{self._key}': {len(paths)} files in {d}")
         return paths
 
     def _write_graph_html(self, output_dir: str) -> str:
         """Write {KEY}_graph.html to an already-created directory."""
         path = os.path.join(output_dir, f"{self._key}_graph.html")
-        content = HtmlExporter().export_graph_only(self._result.graph, self._key)
+        content = self._html_exporter.export_graph_only(self._result.graph, self._key)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(content)
         _logger.info(f"Graph HTML saved: {path}")
@@ -822,8 +835,7 @@ class Graph:
         """
         from trace_core.exporters.neo4j_exporter import Neo4jExporter
 
-        out_dir = output_dir or _OUT_JSON
-        os.makedirs(out_dir, exist_ok=True)
+        out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}_graph.cypher")
 
         nx_graph = self._result.graph
@@ -886,21 +898,10 @@ class Trace:
             ``to_neo4j()`` and ``extend()``.
         """
         graph = Graph(self._result, key=self._key)
-
-        # Auto-save the graph-only HTML
-        nx_graph = getattr(self._result, "graph", None)
-        out_dir  = output_dir or _OUT_HTML
-        os.makedirs(out_dir, exist_ok=True)
-        field_key = (self._key or self._result.field_name).upper()
-        graph_html_path = os.path.join(out_dir, f"{field_key}_graph.html")
         try:
-            html_content = HtmlExporter().export_graph_only(nx_graph, field_key)
-            with open(graph_html_path, "w", encoding="utf-8") as fh:
-                fh.write(html_content)
-            _logger.info(f"Graph HTML saved: {graph_html_path}")
+            graph._write_graph_html(graph._out_dir(output_dir))
         except Exception as exc:
             _logger.warning(f"Could not save graph HTML: {exc}")
-
         return graph
 
     @property
@@ -1212,14 +1213,16 @@ def _default_trace_config() -> Dict[str, Any]:
 
 
 def _merge_packages(config: Dict[str, Any], extra_packages: List[str]) -> Dict[str, Any]:
-    """Return a copy of config with extra_packages added to includePackages."""
-    import copy
-    cfg = copy.deepcopy(config)
-    existing = cfg.setdefault("trace", {}).setdefault("includePackages", [])
-    for pkg in extra_packages:
-        if pkg not in existing:
-            existing.append(pkg)
-    return cfg
+    """Return a config dict with extra_packages merged into includePackages.
+
+    Only copies the inner list that changes; outer structure is shared read-only.
+    """
+    if not extra_packages:
+        return config
+    trace = config.get("trace", {})
+    existing = trace.get("includePackages", [])
+    merged = existing + [p for p in extra_packages if p not in existing]
+    return {**config, "trace": {**trace, "includePackages": merged}}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
