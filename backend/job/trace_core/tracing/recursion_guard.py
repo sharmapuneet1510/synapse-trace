@@ -23,9 +23,11 @@ class RecursionGuard:
         if ctx.depth_exceeded:
             logger.warning(
                 f"Max recursion depth {ctx.max_depth} reached",
-                trace_id=ctx.trace_id,
-                field_name=ctx.field_name,
-                recursion_depth=ctx.current_depth,
+                extra={
+                    "trace_id": ctx.trace_id,
+                    "field_name": ctx.field_name,
+                    "recursion_depth": ctx.current_depth,
+                },
             )
             return False
         return True
