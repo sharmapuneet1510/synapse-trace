@@ -144,21 +144,24 @@ class RepoScanner:
         # Use Maven artifactId as the canonical repo name when available
         name = artifact_id or os.path.basename(abs_path)
 
-        # ── Collect all pom.xml files (files only — skip directories) ──────────
+        # ── Collect all pom.xml files (production modules only) ─────────────────
+        # We reuse the same skip logic as find_files_by_extension so that test
+        # modules (src/test, src/it) and build-output directories (target/) are
+        # never added to the POM list.
+        from trace_core.utils.file_utils import _SKIP_DIRS, _is_test_path
+
         pom_files: List[str] = []
         for dirpath, dirnames, filenames in os.walk(abs_path):
-            # Skip hidden directories and common non-source trees in-place so
-            # os.walk does not descend into them.
             dirnames[:] = [
                 d for d in dirnames
-                if not d.startswith(".")
-                and d not in ("target", "build", "out", "node_modules", ".git")
+                if d not in _SKIP_DIRS and not d.startswith(".")
             ]
+            if _is_test_path(dirpath, abs_path):
+                dirnames.clear()
+                continue
             for f in filenames:
                 if f == "pom.xml":
                     candidate = os.path.join(dirpath, f)
-                    # Guard: os.walk yields filenames, but double-check it is
-                    # actually a regular file (not a directory named pom.xml).
                     if os.path.isfile(candidate):
                         pom_files.append(candidate)
 
