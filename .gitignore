@@ -1,7 +1,59 @@
-existing_project
-src/__pycache__
-src/api/models/__pycache__
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# ── Databases ─────────────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+backend/logs/
 *.log
-.idea/**
-.claude/**
-logs/**
+
+# ── Job output (generated reports) ───────────────────────────────────────────
+backend/output/
+
+# ── Test / coverage ───────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+*.pem
+*.key
+backend/config/local_*.yaml
+backend/config/*.local.yaml
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+.claude/
+*.HEIC
+*.JPEG
+*.heic

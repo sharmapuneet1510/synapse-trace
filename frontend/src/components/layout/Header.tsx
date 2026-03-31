@@ -1,97 +1,229 @@
-import { useAppStore } from '../../stores/appStore';
+import React from 'react';
+import {
+  Layers, Network, Settings, ScrollText,
+  MessageCircle, Sparkles, BookOpen, Activity, Zap,
+} from 'lucide-react';
+import { useAppStore } from '../../store/appStore';
 
-export default function Header() {
-  const { activeView, setActiveView, jurisdictionId, configType, chatOpen, setChatOpen } = useAppStore();
+const ORIGIN_LABELS: Record<string, string> = {
+  XSLT_THEN_JAVA: 'XSLT→JAVA',
+  XSLT: 'XSLT',
+  JAVA: 'JAVA',
+  UNKNOWN: 'UNKNOWN',
+};
+
+export function Header() {
+  const {
+    traceResult, viewMode, setViewMode,
+    setConfigOpen, setLogsOpen, logsOpen,
+    setChatOpen, chatOpen,
+    setDerivationOpen, derivationOpen,
+    setApiDocsOpen, apiDocsOpen,
+  } = useAppStore();
+
+  const closeOthers = (except: string) => {
+    if (except !== 'chat') setChatOpen(false);
+    if (except !== 'derive') setDerivationOpen(false);
+    if (except !== 'docs') setApiDocsOpen(false);
+  };
 
   return (
     <header
-      className="h-[48px] flex items-center px-5 shrink-0 text-white select-none"
-      style={{
-        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 40%, #991b1b 100%)',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-      }}
+      style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}
+      className="h-12 flex items-center px-4 gap-4 shrink-0"
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-[30px] h-[30px] rounded-lg flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
+      {/* Logo mark */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="relative w-6 h-6 flex items-center justify-center">
+          <Activity size={16} style={{ color: 'var(--amber)' }} />
+        </div>
+        <span
+          style={{
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 700,
+            fontSize: '17px',
+            letterSpacing: '0.15em',
+            color: 'var(--text-primary)',
+          }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-        </div>
-        <div>
-          <span className="text-[14px] font-bold tracking-[-0.01em] leading-none">Synapse Trace</span>
-          <span className="text-[9px] text-white/40 ml-2 font-medium tracking-wider uppercase">Data Lineage</span>
-        </div>
+          SYNAPSE<span style={{ color: 'var(--amber)' }}>TRACE</span>
+        </span>
       </div>
 
-      {/* Breadcrumb */}
-      {jurisdictionId && activeView === 'explorer' && (
-        <div className="ml-6 flex items-center gap-1.5 text-[12px]">
-          <div className="w-px h-4 bg-white/20 mr-2" />
-          <span className="text-white/50 font-medium">Explorer</span>
-          <svg className="w-3 h-3 text-white/30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-          <span className="font-semibold">{jurisdictionId.toUpperCase()}</span>
-          {configType && (
-            <>
-              <svg className="w-3 h-3 text-white/30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-              <span className="font-semibold">{configType}</span>
-            </>
+      {/* Divider */}
+      <div style={{ width: 1, height: 20, background: 'var(--border-bright)' }} className="shrink-0" />
+
+      {/* Field info badge */}
+      {traceResult ? (
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="label-tag" style={{ color: 'var(--text-muted)' }}>FIELD</span>
+          <span style={{ color: 'var(--amber)', fontWeight: 500, fontSize: '13px' }} className="font-mono truncate">
+            {traceResult.field_name}
+          </span>
+
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)', borderRadius: 3 }}
+            className="flex items-center gap-1.5 px-2 py-0.5"
+          >
+            <span className="status-dot green" />
+            <span className="label-tag" style={{ color: 'var(--emerald)' }}>
+              {ORIGIN_LABELS[traceResult.origin] ?? traceResult.origin}
+            </span>
+          </div>
+
+          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+            {traceResult.summary.total_nodes} nodes
+          </span>
+          <span style={{ color: 'var(--border-bright)', fontSize: '11px' }}>·</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+            {traceResult.summary.branch_count} branches
+          </span>
+          {traceResult.summary.has_xslt && (
+            <span className="label-tag px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(167,139,250,0.12)', color: 'var(--violet)', border: '1px solid rgba(167,139,250,0.25)' }}>
+              XSLT
+            </span>
           )}
+          {traceResult.summary.has_java && (
+            <span className="label-tag px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(34,211,238,0.08)', color: 'var(--cyan)', border: '1px solid rgba(34,211,238,0.2)' }}>
+              JAVA
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center gap-2">
+          <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontStyle: 'italic' }}>
+            No active trace — enter a field name to begin
+          </span>
         </div>
       )}
 
-      {/* Right nav */}
-      <nav className="ml-auto flex items-center gap-1">
-        {(['explorer', 'dashboard'] as const).map((view) => (
-          <button
-            key={view}
-            onClick={() => setActiveView(view)}
-            className="relative px-4 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all duration-150"
-            style={{
-              background: activeView === view ? 'rgba(255,255,255,0.2)' : 'transparent',
-              color: activeView === view ? '#fff' : 'rgba(255,255,255,0.55)',
-            }}
-          >
-            <span className="flex items-center gap-1.5">
-              {view === 'explorer' ? (
-                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              ) : (
-                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-              )}
-              {view}
-            </span>
-          </button>
-        ))}
+      <div className="flex-1" />
 
-        <div className="w-px h-5 bg-white/15 mx-1.5" />
-
-        {/* Chat toggle */}
-        <button
-          onClick={() => setChatOpen(!chatOpen)}
-          className="relative flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all duration-150"
-          style={{
-            background: chatOpen ? 'rgba(255,255,255,0.2)' : 'transparent',
-            color: chatOpen ? '#fff' : 'rgba(255,255,255,0.55)',
-          }}
+      {/* View toggle */}
+      {traceResult && (
+        <div
+          className="flex items-center p-0.5 gap-0.5"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)', borderRadius: 5 }}
         >
-          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          Chat
-          {chatOpen && (
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          )}
-        </button>
-      </nav>
+          <button
+            onClick={() => setViewMode('pipeline')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all"
+            style={viewMode === 'pipeline'
+              ? { background: 'var(--amber)', color: '#06080f' }
+              : { color: 'var(--text-secondary)' }}
+          >
+            <Layers size={11} />
+            <span className="label-tag" style={{ fontSize: '10px' }}>PIPELINE</span>
+          </button>
+          <button
+            onClick={() => setViewMode('branch')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all"
+            style={viewMode === 'branch'
+              ? { background: 'var(--amber)', color: '#06080f' }
+              : { color: 'var(--text-secondary)' }}
+          >
+            <Network size={11} />
+            <span className="label-tag" style={{ fontSize: '10px' }}>BRANCH</span>
+          </button>
+        </div>
+      )}
+
+      {/* Toolbar icons */}
+      <div className="flex items-center" style={{ gap: 2 }}>
+        <HeaderIconBtn
+          active={derivationOpen}
+          activeColor="var(--amber)"
+          activeBg="rgba(245,166,35,0.1)"
+          title="AI Derivation"
+          onClick={() => { closeOthers('derive'); setDerivationOpen(!derivationOpen); }}
+        >
+          <Sparkles size={14} />
+        </HeaderIconBtn>
+
+        <HeaderIconBtn
+          active={chatOpen}
+          activeColor="var(--emerald)"
+          activeBg="rgba(16,185,129,0.1)"
+          title="AI Chat"
+          onClick={() => { closeOthers('chat'); setChatOpen(!chatOpen); }}
+        >
+          <MessageCircle size={14} />
+        </HeaderIconBtn>
+
+        <HeaderIconBtn
+          active={apiDocsOpen}
+          activeColor="var(--violet)"
+          activeBg="rgba(167,139,250,0.1)"
+          title="API Documentation"
+          onClick={() => { closeOthers('docs'); setApiDocsOpen(!apiDocsOpen); }}
+        >
+          <BookOpen size={14} />
+        </HeaderIconBtn>
+
+        <div style={{ width: 1, height: 16, background: 'var(--border-bright)', margin: '0 4px' }} />
+
+        <HeaderIconBtn
+          active={logsOpen}
+          activeColor="var(--text-primary)"
+          activeBg="var(--bg-elevated)"
+          title="Toggle logs"
+          onClick={() => setLogsOpen(!logsOpen)}
+        >
+          <ScrollText size={14} />
+        </HeaderIconBtn>
+
+        <HeaderIconBtn
+          active={false}
+          activeColor="var(--text-primary)"
+          activeBg="var(--bg-elevated)"
+          title="Configuration"
+          onClick={() => setConfigOpen(true)}
+        >
+          <Settings size={14} />
+        </HeaderIconBtn>
+      </div>
     </header>
+  );
+}
+
+function HeaderIconBtn({
+  children, active, activeColor, activeBg, title, onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  activeColor: string;
+  activeBg: string;
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex items-center justify-center transition-all"
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 4,
+        border: active ? `1px solid ${activeColor}30` : '1px solid transparent',
+        color: active ? activeColor : 'var(--text-secondary)',
+        background: active ? activeBg : 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-primary)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-elevated)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+        }
+      }}
+    >
+      {children}
+    </button>
   );
 }

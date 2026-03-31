@@ -1,18 +1,17 @@
-const BASE = '/api';
+import axios from 'axios';
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
-  return res.json();
-}
+const client = axios.create({
+  baseURL: 'http://localhost:8000',
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 120_000,
+});
 
-export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-  delete: <T = void>(path: string) =>
-    request<T>(path, { method: 'DELETE' }),
-};
+client.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    console.error('[API Error]', err.response?.data || err.message);
+    return Promise.reject(err);
+  }
+);
+
+export default client;
