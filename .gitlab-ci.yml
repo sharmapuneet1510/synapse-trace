@@ -1,0 +1,213 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Synapse Trace — GitLab CI/CD
+#
+# Monorepo pipeline: one `.gitlab-ci.yml` builds and pushes three images to
+# the GitLab Container Registry, rebuilding only the component(s) that changed.
+#
+# Images produced:
+#   $CI_REGISTRY_IMAGE/api:$TAG        ← backend/app  (FastAPI)
+#   $CI_REGISTRY_IMAGE/job:$TAG        ← backend/job  (lineage scanner)
+#   $CI_REGISTRY_IMAGE/frontend:$TAG   ← frontend     (React + nginx)
+#
+# TAG is set to the git short SHA on feature branches and to the semver tag
+# (e.g. "1.2.3") on protected tags, so images are always traceable.
+#
+# Usage:
+#   Push to any branch  → images built and pushed with short-SHA tag
+#   Push a vX.Y.Z tag   → images also tagged with the semver string + "latest"
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Global defaults ───────────────────────────────────────────────────────────
+default:
+  image: docker:26
+  services:
+    - docker:26-dind
+  before_script:
+    - docker info
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+
+variables:
+  # Docker BuildKit for faster, layer-cached builds
+  DOCKER_BUILDKIT: "1"
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+  # Derived image roots — override in GitLab project CI/CD settings if needed
+  IMAGE_API:      "$CI_REGISTRY_IMAGE/api"
+  IMAGE_JOB:      "$CI_REGISTRY_IMAGE/job"
+  IMAGE_FRONTEND: "$CI_REGISTRY_IMAGE/frontend"
+
+  # Build context is always the repo root (Dockerfiles reference backend/ and
+  # frontend/ as relative paths from there)
+  BUILD_CONTEXT: "."
+
+
+# ── Stages ────────────────────────────────────────────────────────────────────
+stages:
+  - build    # build & push images in parallel
+  - test     # lightweight smoke tests against built images (optional)
+  - release  # re-tag with semver on protected tags
+
+
+# ── Reusable tag helper ───────────────────────────────────────────────────────
+# Sets IMAGE_TAG to the short commit SHA on branches, and to the git tag on
+# tag pipelines so release images are always traceable.
+.set_tag: &set_tag |
+  export IMAGE_TAG="${CI_COMMIT_SHORT_SHA}"
+  if [ -n "$CI_COMMIT_TAG" ]; then
+    export IMAGE_TAG="${CI_COMMIT_TAG#v}"   # strip leading "v" from vX.Y.Z
+  fi
+  echo "IMAGE_TAG=$IMAGE_TAG"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD STAGE
+# Each job is independent and runs in parallel.
+# Path filters ensure a job is skipped when nothing in its subtree changed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+build:api:
+  stage: build
+  script:
+    - *set_tag
+    - |
+      docker build \
+        --file backend/app/Dockerfile \
+        --tag  "${IMAGE_API}:${IMAGE_TAG}" \
+        --tag  "${IMAGE_API}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_API}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_API}:main" \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        "${BUILD_CONTEXT}"
+    - docker push "${IMAGE_API}:${IMAGE_TAG}"
+    - docker push "${IMAGE_API}:branch-${CI_COMMIT_REF_SLUG}"
+  rules:
+    # Run on any push that touches API code or its shared deps
+    - changes:
+        - backend/app/**/*
+        - backend/job/trace_core/**/*
+        - backend/config/**/*
+        - backend/pyproject.toml
+        - backend/requirements.txt
+        - backend/app/Dockerfile
+        - .gitlab-ci.yml
+    # Also run on tag pipelines (release)
+    - if: '$CI_COMMIT_TAG'
+
+build:job:
+  stage: build
+  script:
+    - *set_tag
+    - |
+      docker build \
+        --file backend/job/Dockerfile \
+        --tag  "${IMAGE_JOB}:${IMAGE_TAG}" \
+        --tag  "${IMAGE_JOB}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_JOB}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_JOB}:main" \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        "${BUILD_CONTEXT}"
+    - docker push "${IMAGE_JOB}:${IMAGE_TAG}"
+    - docker push "${IMAGE_JOB}:branch-${CI_COMMIT_REF_SLUG}"
+  rules:
+    - changes:
+        - backend/job/**/*
+        - backend/config/**/*
+        - backend/pyproject.toml
+        - backend/requirements.txt
+        - backend/job/Dockerfile
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_TAG'
+
+build:frontend:
+  stage: build
+  script:
+    - *set_tag
+    - |
+      docker build \
+        --file frontend/Dockerfile \
+        --tag  "${IMAGE_FRONTEND}:${IMAGE_TAG}" \
+        --tag  "${IMAGE_FRONTEND}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_FRONTEND}:branch-${CI_COMMIT_REF_SLUG}" \
+        --cache-from "${IMAGE_FRONTEND}:main" \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        "${BUILD_CONTEXT}"
+    - docker push "${IMAGE_FRONTEND}:${IMAGE_TAG}"
+    - docker push "${IMAGE_FRONTEND}:branch-${CI_COMMIT_REF_SLUG}"
+  rules:
+    - changes:
+        - frontend/**/*
+        - frontend/Dockerfile
+        - frontend/nginx.conf
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_TAG'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEST STAGE
+# Lightweight smoke tests — just verify the images start and health-check.
+# ─────────────────────────────────────────────────────────────────────────────
+
+test:api:
+  stage: test
+  needs: [build:api]
+  script:
+    - *set_tag
+    - |
+      docker run -d --name api_test \
+        -e LOG_DIR=/tmp/logs \
+        -e APP_ENV=production \
+        -p 8000:8000 \
+        "${IMAGE_API}:${IMAGE_TAG}"
+    - sleep 5
+    - docker exec api_test wget -qO- http://localhost:8000/api/health
+    - docker stop api_test && docker rm api_test
+  rules:
+    - changes:
+        - backend/app/**/*
+        - backend/job/trace_core/**/*
+        - backend/app/Dockerfile
+    - if: '$CI_COMMIT_TAG'
+
+test:frontend:
+  stage: test
+  needs: [build:frontend]
+  script:
+    - *set_tag
+    - docker run -d --name frontend_test -p 8080:80 "${IMAGE_FRONTEND}:${IMAGE_TAG}"
+    - sleep 3
+    - docker exec frontend_test wget -qO- http://localhost/ | grep -q "<!DOCTYPE html"
+    - docker stop frontend_test && docker rm frontend_test
+  rules:
+    - changes:
+        - frontend/**/*
+        - frontend/Dockerfile
+    - if: '$CI_COMMIT_TAG'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RELEASE STAGE
+# Only runs on protected semver tags (v1.2.3).
+# Re-tags the SHA-tagged images built above as "1.2.3" and "latest".
+# ─────────────────────────────────────────────────────────────────────────────
+
+.release_template: &release_template
+  stage: release
+  script:
+    - export SEMVER="${CI_COMMIT_TAG#v}"
+    - export SHA_TAG="${CI_COMMIT_SHORT_SHA}"
+    - |
+      for IMAGE in "${IMAGE_API}" "${IMAGE_JOB}" "${IMAGE_FRONTEND}"; do
+        docker pull "${IMAGE}:${SHA_TAG}"
+        docker tag  "${IMAGE}:${SHA_TAG}" "${IMAGE}:${SEMVER}"
+        docker tag  "${IMAGE}:${SHA_TAG}" "${IMAGE}:latest"
+        docker push "${IMAGE}:${SEMVER}"
+        docker push "${IMAGE}:latest"
+      done
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+      when: on_success
+
+release:tag:
+  <<: *release_template
+  needs: [build:api, build:job, build:frontend]

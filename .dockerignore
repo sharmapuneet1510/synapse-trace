@@ -1,0 +1,44 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Runtime output / logs (mounted at runtime, not baked in)
+backend/logs/
+backend/output/
+
+# Database files
+*.db
+*.sqlite3
+
+# Frontend build artefacts and deps (re-installed inside Docker)
+frontend/node_modules/
+frontend/dist/
+
+# Docs / scripts (not needed in images)
+docs/
+scripts/
+
+# Git / CI metadata
+.git/
+.gitlab/
+.github/
+.gitignore
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.HEIC
+
+# Tests (not shipped in runtime images)
+**/tests/
