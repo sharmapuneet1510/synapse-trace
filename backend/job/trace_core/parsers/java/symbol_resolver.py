@@ -16,10 +16,19 @@ class SymbolResolver:
         context_class: JavaClass,
         class_index: Dict[str, JavaClass],
     ) -> Optional[str]:
-        """Return the FQN of the callee class, or None if unresolvable."""
+        """Return the FQN of the callee class, or None if unresolvable.
+
+        When ``callee_class`` is ``None`` (bare call with no explicit receiver,
+        e.g. ``mapField(x)`` instead of ``this.mapField(x)``), we treat the
+        call as being on the current class (implicit ``this``).  This is the
+        most common case for private helper methods and correctly links
+        same-class call chains.
+        """
         callee = method_call.callee_class
-        if not callee:
-            return None
+
+        # Bare call or explicit this → resolve to the current class
+        if not callee or callee == "this":
+            return context_class.fqn if context_class.fqn in class_index else None
 
         # Already a FQN
         if "." in callee:

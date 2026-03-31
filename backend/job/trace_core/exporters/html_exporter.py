@@ -52,20 +52,48 @@ def _nx_to_visjs(G: "nx.MultiDiGraph") -> dict:
     for node_id, data in G.nodes(data=True):
         ttype  = data.get("transformation_type") or ""
         label  = data.get("label") or node_id
-        color  = _TYPE_COLORS.get(ttype, "#6b7280")
-        badge  = _TYPE_LABELS.get(ttype, ttype or "—")
         ntype  = data.get("node_type") or ""
 
-        # Multi-line label: name on first line, type badge on second
-        short = label if len(label) <= 30 else label[:27] + "…"
+        # Synthetic field-root node gets a distinct diamond shape + red colour
+        is_field_root = ntype == "field" or node_id.startswith("field:")
+        if is_field_root:
+            color  = "#dc2626"
+            badge  = "FIELD"
+            shape  = "diamond"
+        else:
+            color  = _TYPE_COLORS.get(ttype, "#6b7280")
+            badge  = _TYPE_LABELS.get(ttype, ttype or "—")
+            shape  = "box"
+
+        # Show full label on hover tooltip; truncate only the inline label
+        short = label if len(label) <= 35 else label[:32] + "…"
         vis_label = f"{short}\n[{badge}]"
+
+        # Build a rich tooltip with all available evidence
+        ev = data.get("evidence") or {}
+        tooltip_lines = [f"<b>{html.escape(label)}</b>"]
+        if ntype:
+            tooltip_lines.append(f"Type: {ntype}")
+        if ttype:
+            tooltip_lines.append(f"Transform: {ttype}")
+        if ev.get("file_path"):
+            import os as _os
+            tooltip_lines.append(f"File: {html.escape(_os.path.basename(str(ev['file_path'])))}")
+        if ev.get("line_number"):
+            tooltip_lines.append(f"Line: {ev['line_number']}")
+        if ev.get("class_or_template"):
+            tooltip_lines.append(f"Class: {html.escape(str(ev['class_or_template']))}")
+        if ev.get("method_or_template_name"):
+            tooltip_lines.append(f"Method: {html.escape(str(ev['method_or_template_name']))}")
+        if ev.get("condition_text"):
+            tooltip_lines.append(f"Condition: {html.escape(str(ev['condition_text'])[:120])}")
 
         vis_nodes.append({
             "id":    node_id,
             "label": vis_label,
-            "title": f"<b>{html.escape(label)}</b><br/>{ntype} · {ttype}",
+            "title": "<br/>".join(tooltip_lines),
             "color": {
-                "background": color + "22",   # 13 % opacity fill
+                "background": color + "22",
                 "border":     color,
                 "highlight":  {"background": color + "44", "border": color},
                 "hover":      {"background": color + "33", "border": color},
@@ -78,7 +106,7 @@ def _nx_to_visjs(G: "nx.MultiDiGraph") -> dict:
             },
             "borderWidth":          2,
             "borderWidthSelected":  3,
-            "shape":                "box",
+            "shape":                shape,
             "margin":               8,
             "shadow":               {"enabled": True, "color": "rgba(0,0,0,0.08)", "size": 6},
         })

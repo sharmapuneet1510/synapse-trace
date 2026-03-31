@@ -114,10 +114,11 @@ class JavaTraceEngine:
                 relation=EdgeRelationType.CALLS,
             ))
 
-        # Recurse into called methods that match package filter
+        # Recurse into called methods that match package filter.
+        # callee_class=None means a bare call (no explicit receiver) which the
+        # SymbolResolver now resolves to the current class — do NOT skip these,
+        # as they represent same-class helper method calls (implicit this).
         for call in method.method_calls:
-            if not call.callee_class:
-                continue
             callee_fqn = self._resolver.resolve(call, cls, self._index)
             if not callee_fqn:
                 continue
@@ -131,7 +132,9 @@ class JavaTraceEngine:
             if not callee_method:
                 continue
 
-            child_nodes, child_edges = self.trace_method(callee_cls, callee_method, ctx.descend(), parent_node_id=node_id)
+            child_nodes, child_edges = self.trace_method(
+                callee_cls, callee_method, ctx.descend(), parent_node_id=node_id
+            )
             nodes.extend(child_nodes)
             edges.extend(child_edges)
 

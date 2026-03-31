@@ -97,10 +97,16 @@ from trace_core.logging.context_logger import ContextLogger
 
 _logger = ContextLogger("data_lineage")
 
-# ── output directories ────────────────────────────────────────────────────────
-_OUT_HTML = os.path.join(_ROOT, "backend", "output", "html")
-_OUT_MD   = os.path.join(_ROOT, "backend", "output", "md")
-_OUT_JSON = os.path.join(_ROOT, "backend", "output", "json")
+# ── output root — each field gets its own subdirectory ────────────────────────
+# backend/output/{FIELDNAME}/
+#   {FIELDNAME}.html              full lineage report
+#   {FIELDNAME}_graph.html        interactive NetworkX graph (fullscreen vis.js)
+#   {FIELDNAME}.md                markdown summary
+#   {FIELDNAME}.json              full trace JSON
+#   {FIELDNAME}_graph.cypher      Neo4j Cypher import script
+#   {FIELDNAME}.process_flow.html end-to-end process flow (field → modules)
+#   {FIELDNAME}.process_flow.json process flow as structured JSON
+_OUT_BASE = os.path.join(_ROOT, "backend", "output")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -172,34 +178,41 @@ class Graph:
         """Primary output key (used for all file names)."""
         return self._key
 
+    # ── Output directory helper ───────────────────────────────────────────────
+
+    def _out_dir(self, override: Optional[str] = None) -> str:
+        """Return (and create) the per-field output directory.
+
+        Default: ``backend/output/{KEY}/``
+        Override: pass an explicit *override* path.
+        """
+        d = override or os.path.join(_OUT_BASE, self._key)
+        os.makedirs(d, exist_ok=True)
+        return d
+
     # ── File exports ──────────────────────────────────────────────────────────
 
     def to_html(self, output_dir: Optional[str] = None) -> str:
-        """Save a self-contained HTML report to <output_dir>/<KEY>.html.
+        """Save the full lineage report to ``<output_dir>/{KEY}.html``.
 
         Returns the absolute path of the written file.
         """
-        out_dir = output_dir or _OUT_HTML
-        os.makedirs(out_dir, exist_ok=True)
+        out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}.html")
-        html = HtmlExporter().export(
+        content = HtmlExporter().export(
             self._result.summary,
             self._result.nodes,
             self._result.branches,
-            graph=self._result.graph,   # NetworkX MultiDiGraph → rendered as vis.js network
+            graph=self._result.graph,
         )
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(html)
+            fh.write(content)
         _logger.info(f"HTML report saved: {path}")
         return path
 
     def to_md(self, output_dir: Optional[str] = None) -> str:
-        """Save a Markdown lineage report to <output_dir>/<KEY>.md.
-
-        Returns the absolute path of the written file.
-        """
-        out_dir = output_dir or _OUT_MD
-        os.makedirs(out_dir, exist_ok=True)
+        """Save a Markdown lineage report to ``<output_dir>/{KEY}.md``."""
+        out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}.md")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(_MdExporter().export(self._result))
@@ -207,23 +220,299 @@ class Graph:
         return path
 
     def to_json(self, output_dir: Optional[str] = None) -> str:
-        """Save the full trace as JSON to <output_dir>/<KEY>.json.
-
-        Serialises the complete TraceResult (nodes, edges, branches, graph,
-        summary, metadata) and writes it to disk.
-
-        Returns the absolute path of the written file.
-        """
-        out_dir = output_dir or _OUT_JSON
-        os.makedirs(out_dir, exist_ok=True)
+        """Save the complete trace as ``<output_dir>/{KEY}.json``."""
+        out_dir = self._out_dir(output_dir)
         path = os.path.join(out_dir, f"{self._key}.json")
         payload = self._result.to_json()
-        # Stamp the key into the exported payload so consumers know which
-        # primary key produced this file.
         payload["key"] = self._key
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2, default=str)
         _logger.info(f"JSON export saved: {path}")
+        return path
+
+    def to_process_flow_json(self, output_dir: Optional[str] = None) -> str:
+        """Save a process-flow JSON to ``<output_dir>/{KEY}.process_flow.json``.
+
+        The process flow captures the field's end-to-end journey across modules:
+        which source module first produces the field, which intermediate modules
+        transform it, and which downstream modules consume or report it.
+
+        Structure::
+
+            {
+              "field": "N_CLEARED",
+              "origin": "XSLT",
+              "stages": [
+                {
+                  "stage": 1,
+                  "module": "xslt-module",
+                  "file": "mapTrade.xslt",
+                  "transformation": "EXTRACTION",
+                  "nodes": ["mapTrade.xslt::mapClearedFlag"]
+                },
+                ...
+              ],
+              "edges": [{"from_stage": 1, "to_stage": 2, "relation": "feeds"}],
+              "branches": [...],
+              "metadata": {...}
+            }
+
+        Returns the absolute path of the written file.
+        """
+        out_dir = self._out_dir(output_dir)
+        path = os.path.join(out_dir, f"{self._key}.process_flow.json")
+
+        # Group nodes by module — use evidence.module, fallback to file path dir
+        stages: List[Dict] = []
+        stage_index: Dict[str, int] = {}   # module_key → stage number
+        for node in self._result.nodes:
+            ev = node.evidence
+            module_key = (
+                ev.module
+                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
+                or "unknown"
+            )
+            if module_key not in stage_index:
+                stage_index[module_key] = len(stages) + 1
+                stages.append({
+                    "stage":          stage_index[module_key],
+                    "module":         module_key,
+                    "file":           ev.file_path or "",
+                    "transformation": node.transformation_type.value if node.transformation_type else "UNKNOWN",
+                    "nodes":          [],
+                })
+            stages[stage_index[module_key] - 1]["nodes"].append(node.label)
+
+        # Build cross-module edges from the trace edges
+        flow_edges = []
+        node_to_stage: Dict[str, int] = {}
+        for node in self._result.nodes:
+            ev = node.evidence
+            module_key = (
+                ev.module
+                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
+                or "unknown"
+            )
+            node_to_stage[node.node_id] = stage_index.get(module_key, 0)
+
+        seen_flow_edges: set = set()
+        for edge in self._result.edges:
+            src_stage = node_to_stage.get(edge.source_id, 0)
+            tgt_stage = node_to_stage.get(edge.target_id, 0)
+            if src_stage != tgt_stage and (src_stage, tgt_stage) not in seen_flow_edges:
+                seen_flow_edges.add((src_stage, tgt_stage))
+                flow_edges.append({
+                    "from_stage": src_stage,
+                    "to_stage":   tgt_stage,
+                    "relation":   edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation),
+                })
+
+        payload = {
+            "field":    self._key,
+            "origin":   self._result.summary.origin.value,
+            "stages":   stages,
+            "edges":    flow_edges,
+            "branches": [
+                {
+                    "branch_id": b.branch_id,
+                    "condition": b.condition,
+                    "outcome":   b.outcome,
+                }
+                for b in self._result.branches
+            ],
+            "metadata": self._result.metadata,
+        }
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, default=str)
+        _logger.info(f"Process flow JSON saved: {path}")
+        return path
+
+    def to_process_flow_html(self, output_dir: Optional[str] = None) -> str:
+        """Save an interactive process-flow HTML to ``<output_dir>/{KEY}.process_flow.html``.
+
+        Renders the module-level flow as a vis.js network where each *node* is a
+        module (not an individual method) and edges show how data moves between
+        modules.  This gives an executive-level view of the field's journey across
+        the system, complementing the detailed node-level graph in ``{KEY}_graph.html``.
+
+        Returns the absolute path of the written file.
+        """
+        import html as _html
+        import json as _json
+
+        # Build process-flow JSON payload (reuse logic without writing the file)
+        stages: List[Dict] = []
+        stage_index: Dict[str, int] = {}
+        for node in self._result.nodes:
+            ev = node.evidence
+            module_key = (
+                ev.module
+                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
+                or "unknown"
+            )
+            if module_key not in stage_index:
+                stage_index[module_key] = len(stages) + 1
+                stages.append({
+                    "stage":          stage_index[module_key],
+                    "module":         module_key,
+                    "transformation": node.transformation_type.value if node.transformation_type else "UNKNOWN",
+                    "nodes":          [],
+                })
+            stages[stage_index[module_key] - 1]["nodes"].append(node.label)
+
+        node_to_stage: Dict[str, int] = {}
+        for node in self._result.nodes:
+            ev = node.evidence
+            module_key = (
+                ev.module
+                or (os.path.dirname(ev.file_path).replace("\\", "/").split("/")[-1] if ev.file_path else None)
+                or "unknown"
+            )
+            node_to_stage[node.node_id] = stage_index.get(module_key, 0)
+
+        seen: set = set()
+        flow_edges = []
+        for edge in self._result.edges:
+            s, t = node_to_stage.get(edge.source_id, 0), node_to_stage.get(edge.target_id, 0)
+            if s != t and (s, t) not in seen:
+                seen.add((s, t))
+                flow_edges.append({"from": s, "to": t})
+
+        _TYPE_COLORS_LOCAL = {
+            "EXTRACTION":              "#7c3aed",
+            "MAPPING":                 "#0891b2",
+            "ENRICHMENT":              "#059669",
+            "OVERRIDE":                "#d97706",
+            "DEFAULTING":              "#6b7280",
+            "PASS_THROUGH":            "#9ca3af",
+            "CONDITIONAL_ASSIGNMENT":  "#ea580c",
+            "FINAL_REPORT_ASSIGNMENT": "#dc2626",
+            "UNKNOWN":                 "#6b7280",
+        }
+
+        vis_nodes = [
+            {
+                "id":    s["stage"],
+                "label": f"{s['module']}\n[{s['transformation'][:6]}]",
+                "title": (
+                    f"<b>{_html.escape(s['module'])}</b><br/>"
+                    f"Transform: {s['transformation']}<br/>"
+                    f"Methods ({len(s['nodes'])}):<br/>"
+                    + "<br/>".join(_html.escape(n[:60]) for n in s["nodes"][:8])
+                    + ("…" if len(s["nodes"]) > 8 else "")
+                ),
+                "color": {
+                    "background": _TYPE_COLORS_LOCAL.get(s["transformation"], "#6b7280") + "22",
+                    "border":     _TYPE_COLORS_LOCAL.get(s["transformation"], "#6b7280"),
+                },
+                "shape": "box",
+                "font":  {"size": 12, "face": "IBM Plex Mono, monospace", "color": "#111827"},
+                "margin": 10,
+            }
+            for s in stages
+        ]
+
+        nodes_json = _json.dumps(vis_nodes, ensure_ascii=False)
+        edges_json = _json.dumps(
+            [{"from": e["from"], "to": e["to"],
+              "arrows": "to", "color": {"color": "#9ca3af"}, "width": 2}
+             for e in flow_edges],
+            ensure_ascii=False,
+        )
+
+        out_dir = self._out_dir(output_dir)
+        path = os.path.join(out_dir, f"{self._key}.process_flow.html")
+
+        content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Process Flow — {_html.escape(self._key)}</title>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+  body{{font-family:'IBM Plex Mono',monospace;background:#f4f5f7;color:#111827;height:100vh;display:flex;flex-direction:column;overflow:hidden}}
+  .topbar{{flex-shrink:0;background:#fff;border-bottom:2px solid #dc2626;padding:10px 20px;display:flex;align-items:center;gap:16px}}
+  .topbar-title{{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;letter-spacing:.06em}}
+  .topbar-title span{{color:#dc2626}}
+  .topbar-sub{{font-size:11px;color:#6b7280}}
+  #graph-container{{flex:1;overflow:hidden}}
+  #flow-graph{{width:100%;height:100%;background:#fff}}
+  .badge{{display:inline-flex;align-items:center;padding:2px 8px;border-radius:3px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:rgba(8,145,178,.1);color:#0891b2;border:1px solid rgba(8,145,178,.25)}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">PROCESS FLOW&nbsp;<span>{_html.escape(self._key)}</span></div>
+  <span class="badge">{_html.escape(self._result.summary.origin.value)}</span>
+  <div class="topbar-sub">{len(stages)} module(s) · {len(flow_edges)} cross-module edge(s)</div>
+</div>
+<div id="graph-container">
+  <div id="flow-graph"></div>
+</div>
+<script>
+(function(){{
+  var container = document.getElementById('flow-graph');
+  var data = {{
+    nodes: new vis.DataSet({nodes_json}),
+    edges: new vis.DataSet({edges_json}),
+  }};
+  var options = {{
+    layout:{{hierarchical:{{enabled:true,direction:'LR',sortMethod:'directed',levelSeparation:240,nodeSpacing:120}}}},
+    physics:{{enabled:false}},
+    interaction:{{hover:true,tooltipDelay:100,navigationButtons:true}},
+    edges:{{smooth:{{type:'cubicBezier',forceDirection:'horizontal',roundness:0.4}}}},
+    nodes:{{widthConstraint:{{maximum:200}}}},
+  }};
+  var net = new vis.Network(container, data, options);
+  setTimeout(function(){{net.fit({{animation:{{duration:400,easingFunction:'easeInOutQuad'}}}});}},100);
+}})();
+</script>
+</body>
+</html>"""
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        _logger.info(f"Process flow HTML saved: {path}")
+        return path
+
+    def to_all(self, output_dir: Optional[str] = None) -> Dict[str, str]:
+        """Write all output files for this field into one directory.
+
+        Output (all under ``backend/output/{KEY}/`` by default)::
+
+            {KEY}.html                  full lineage report
+            {KEY}_graph.html            fullscreen interactive graph
+            {KEY}.md                    markdown summary
+            {KEY}.json                  complete trace JSON
+            {KEY}_graph.cypher          Neo4j Cypher import script
+            {KEY}.process_flow.html     module-level process flow
+            {KEY}.process_flow.json     process flow structured data
+
+        Returns a dict mapping label → absolute file path for every file written.
+        """
+        d = self._out_dir(output_dir)
+        paths = {
+            "html":              self.to_html(d),
+            "graph_html":        self._write_graph_html(d),
+            "md":                self.to_md(d),
+            "json":              self.to_json(d),
+            "cypher":            self.to_neo4j(d),
+            "process_flow_html": self.to_process_flow_html(d),
+            "process_flow_json": self.to_process_flow_json(d),
+        }
+        _logger.info(
+            f"to_all() complete for '{self._key}': {len(paths)} files in {d}"
+        )
+        return paths
+
+    def _write_graph_html(self, output_dir: str) -> str:
+        """Write {KEY}_graph.html to an already-created directory."""
+        path = os.path.join(output_dir, f"{self._key}_graph.html")
+        content = HtmlExporter().export_graph_only(self._result.graph, self._key)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        _logger.info(f"Graph HTML saved: {path}")
         return path
 
     # ── Graph composition ─────────────────────────────────────────────────────
