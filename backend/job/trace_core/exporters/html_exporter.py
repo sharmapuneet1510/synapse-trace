@@ -433,3 +433,279 @@ class HtmlExporter:
             ]
         )
         return f'<div class="legend">{items}</div>'
+
+    # ── Graph-only export ─────────────────────────────────────────────────────
+
+    def export_graph_only(
+        self,
+        G: "nx.MultiDiGraph",
+        field_name: str,
+    ) -> str:
+        """Generate a standalone fullscreen HTML page showing only the vis.js
+        network built from *G*.
+
+        Unlike ``export()``, this page has no pipeline table, no branches list —
+        just the interactive graph with a compact stats bar and a legend.  It is
+        intentionally large (full-viewport) so the graph has maximum space.
+
+        Returns the HTML string (does **not** write to disk — the caller handles
+        file I/O).
+        """
+        if G is None or G.number_of_nodes() == 0:
+            # Return a minimal page explaining no graph data is available.
+            return f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>Graph: {html.escape(field_name)}</title></head>
+<body style="font-family:monospace;padding:40px;color:#6b7280;">
+  No graph data available for <strong>{html.escape(field_name)}</strong>.
+</body></html>"""
+
+        vis_data   = _nx_to_visjs(G)
+        nodes_json = json.dumps(vis_data["nodes"], ensure_ascii=False)
+        edges_json = json.dumps(vis_data["edges"], ensure_ascii=False)
+        n_nodes    = G.number_of_nodes()
+        n_edges    = G.number_of_edges()
+
+        # Build node-type breakdown for the stats bar
+        type_counts: dict[str, int] = {}
+        for _, data in G.nodes(data=True):
+            t = data.get("transformation_type") or "UNKNOWN"
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+        stats_chips = "".join(
+            f'<span style="background:{_TYPE_COLORS.get(t,"#6b7280")}22;'
+            f'color:{_TYPE_COLORS.get(t,"#6b7280")};'
+            f'border:1px solid {_TYPE_COLORS.get(t,"#6b7280")}44;'
+            f'border-radius:3px;padding:2px 8px;font-size:10px;font-weight:700;'
+            f'letter-spacing:0.06em;">'
+            f'{_TYPE_LABELS.get(t,t)}&nbsp;{cnt}</span>'
+            for t, cnt in sorted(type_counts.items(), key=lambda x: -x[1])
+        )
+
+        options_json = json.dumps({
+            "layout": {
+                "hierarchical": {
+                    "enabled":          True,
+                    "direction":        "LR",
+                    "sortMethod":       "directed",
+                    "levelSeparation":  220,
+                    "nodeSpacing":      110,
+                    "treeSpacing":      140,
+                    "blockShifting":    True,
+                    "edgeMinimization": True,
+                    "parentCentralization": True,
+                }
+            },
+            "physics": {"enabled": False},
+            "interaction": {
+                "hover":             True,
+                "tooltipDelay":      120,
+                "navigationButtons": True,
+                "keyboard":          True,
+                "zoomSpeed":         0.5,
+                "multiselect":       True,
+            },
+            "edges": {
+                "smooth": {
+                    "type":           "cubicBezier",
+                    "forceDirection": "horizontal",
+                    "roundness":      0.4,
+                }
+            },
+            "nodes": {"widthConstraint": {"maximum": 200}},
+        })
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Graph — {html.escape(field_name)}</title>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+  body {{
+    font-family: 'IBM Plex Mono', monospace;
+    background: #f4f5f7;
+    color: #111827;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }}
+
+  /* ── Top bar ── */
+  .topbar {{
+    flex-shrink: 0;
+    background: #fff;
+    border-bottom: 2px solid #dc2626;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }}
+  .topbar-title {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.06em;
+    color: #111827;
+    white-space: nowrap;
+  }}
+  .topbar-title span {{ color: #dc2626; }}
+  .topbar-meta {{
+    font-size: 10px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }}
+  .chips {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+  }}
+
+  /* ── Graph fills remaining height ── */
+  #graph-container {{
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }}
+  #lineage-graph {{
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+  }}
+
+  /* ── Controls overlay ── */
+  .controls {{
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #e2e4e9;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 10px;
+    color: #6b7280;
+    backdrop-filter: blur(4px);
+    line-height: 1.8;
+  }}
+
+  /* ── Legend overlay ── */
+  .legend {{
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #e2e4e9;
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    backdrop-filter: blur(4px);
+  }}
+  .legend-title {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #9ca3af;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }}
+  .legend-item {{
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    color: #374151;
+  }}
+  .legend-dot {{
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-title">LINEAGE GRAPH&nbsp;<span>{html.escape(field_name)}</span></div>
+  <div class="topbar-meta">{n_nodes} nodes&nbsp;·&nbsp;{n_edges} edges</div>
+  <div class="chips">{stats_chips}</div>
+</div>
+
+<!-- Full-height graph -->
+<div id="graph-container">
+  <div id="lineage-graph"></div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-title">Node type</div>
+    {''.join(
+        f'<div class="legend-item">'
+        f'<div class="legend-dot" style="background:{color}"></div>'
+        f'{label}</div>'
+        for label, color in [
+            ("Extract",   "#7c3aed"),
+            ("Map",       "#0891b2"),
+            ("Enrich",    "#059669"),
+            ("Override",  "#d97706"),
+            ("Condition", "#ea580c"),
+            ("Final",     "#dc2626"),
+            ("Pass",      "#9ca3af"),
+            ("Default",   "#6b7280"),
+        ]
+    )}
+  </div>
+
+  <!-- Controls hint -->
+  <div class="controls">
+    Scroll — zoom&nbsp;&nbsp;·&nbsp;&nbsp;Drag — pan<br/>
+    Click node — select&nbsp;&nbsp;·&nbsp;&nbsp;Ctrl+click — multi
+  </div>
+</div>
+
+<script>
+(function() {{
+  var container = document.getElementById('lineage-graph');
+  var data = {{
+    nodes: new vis.DataSet({nodes_json}),
+    edges: new vis.DataSet({edges_json}),
+  }};
+  var options = {options_json};
+  var network = new vis.Network(container, data, options);
+
+  // Fit with a short delay to ensure container has rendered
+  setTimeout(function() {{ network.fit({{ animation: {{ duration: 600, easingFunction: 'easeInOutQuad' }} }}); }}, 100);
+
+  // Highlight connected nodes on click
+  network.on('click', function(params) {{
+    if (params.nodes.length > 0) {{
+      var nodeId = params.nodes[0];
+      var connected = network.getConnectedNodes(nodeId);
+      var allNodes = data.nodes.get();
+      var updates = allNodes.map(function(n) {{
+        var dim = connected.indexOf(n.id) === -1 && n.id !== nodeId;
+        return {{
+          id: n.id,
+          opacity: dim ? 0.25 : 1.0,
+        }};
+      }});
+      data.nodes.update(updates);
+    }} else {{
+      // click on empty — restore all
+      data.nodes.update(data.nodes.get().map(function(n) {{ return {{ id: n.id, opacity: 1.0 }}; }}));
+    }}
+  }});
+}})();
+</script>
+</body>
+</html>"""
