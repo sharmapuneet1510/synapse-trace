@@ -47,13 +47,43 @@ class MavenScanner:
     """Parses pom.xml files and extracts Maven module metadata."""
 
     def scan_pom(self, pom_path: str) -> Optional[MavenModule]:
-        """Parse a single pom.xml and return a MavenModule."""
+        """Parse a single pom.xml and return a MavenModule.
+
+        Handles common real-world issues:
+        - File not found
+        - Empty file (0 bytes or only whitespace) — skipped with a warning
+        - UTF-8 BOM and Windows CR/LF line endings stripped before parsing
+        - Malformed XML — logged at WARNING level and skipped (not ERROR)
+        """
         if not os.path.isfile(pom_path):
             logger.warning(f"pom.xml not found: {pom_path}")
             return None
+
+        # ── Read and validate content before handing to the XML parser ────────
         try:
-            tree = ET.parse(pom_path)
-            root = tree.getroot()
+            raw = open(pom_path, "rb").read()
+        except OSError as exc:
+            logger.warning(f"Cannot read POM {pom_path}: {exc}")
+            return None
+
+        if not raw or not raw.strip():
+            logger.warning(f"Skipping empty POM: {pom_path}")
+            return None
+
+        # Strip UTF-8 BOM if present (check prefix, not lstrip, to avoid
+        # accidentally removing valid leading bytes that share the same value)
+        content = raw[3:] if raw[:3] == b"\xef\xbb\xbf" else raw
+        try:
+            xml_text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            xml_text = content.decode("latin-1", errors="replace")
+
+        # Normalise Windows CR/LF → LF so the XML parser sees clean input
+        xml_text = xml_text.replace("\r\n", "\n").replace("\r", "\n")
+
+        try:
+            root = ET.fromstring(xml_text)
+
             # Handle both namespaced and bare poms
             ns = NS if root.tag.startswith("{") else {}
             prefix = "m:" if ns else ""
@@ -96,8 +126,12 @@ class MavenScanner:
                 source_dirs=source_dirs,
                 resource_dirs=resource_dirs,
             )
+
+        except ET.ParseError as exc:
+            logger.warning(f"Skipping malformed POM {pom_path}: {exc}")
+            return None
         except Exception as exc:
-            logger.error(f"Failed to parse POM {pom_path}: {exc}", exc_info=True)
+            logger.error(f"Unexpected error parsing POM {pom_path}: {exc}", exc_info=True)
             return None
 
     def scan_all(self, pom_paths: List[str]) -> List[MavenModule]:

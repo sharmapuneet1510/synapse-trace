@@ -3,14 +3,29 @@ import os
 from typing import List, Optional
 
 
+_SKIP_DIRS = frozenset({
+    "target", "build", "out", ".git", ".svn", ".hg",
+    "node_modules", ".idea", ".vscode", "__pycache__",
+})
+
+
 def find_files_by_extension(root: str, extensions: List[str]) -> List[str]:
-    """Recursively find all files with the given extensions under root."""
+    """Recursively find all *files* with the given extensions under root.
+
+    Skips common build-output and hidden directories (target/, build/,
+    .git/, node_modules/, etc.) and silently ignores any path that turns
+    out to be a directory rather than a regular file.
+    """
     results = []
     ext_set = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in extensions}
-    for dirpath, _, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        # Prune non-source directories in-place so os.walk skips them entirely
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
         for fname in filenames:
             if os.path.splitext(fname)[1].lower() in ext_set:
-                results.append(os.path.join(dirpath, fname))
+                full = os.path.join(dirpath, fname)
+                if os.path.isfile(full):   # exclude any directory that has an extension
+                    results.append(full)
     return sorted(results)
 
 

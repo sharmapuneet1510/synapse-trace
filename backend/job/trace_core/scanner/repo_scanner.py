@@ -144,12 +144,23 @@ class RepoScanner:
         # Use Maven artifactId as the canonical repo name when available
         name = artifact_id or os.path.basename(abs_path)
 
-        # ── Collect all pom.xml files ─────────────────────────────────────────
+        # ── Collect all pom.xml files (files only — skip directories) ──────────
         pom_files: List[str] = []
-        for dirpath, _, filenames in os.walk(abs_path):
+        for dirpath, dirnames, filenames in os.walk(abs_path):
+            # Skip hidden directories and common non-source trees in-place so
+            # os.walk does not descend into them.
+            dirnames[:] = [
+                d for d in dirnames
+                if not d.startswith(".")
+                and d not in ("target", "build", "out", "node_modules", ".git")
+            ]
             for f in filenames:
                 if f == "pom.xml":
-                    pom_files.append(os.path.join(dirpath, f))
+                    candidate = os.path.join(dirpath, f)
+                    # Guard: os.walk yields filenames, but double-check it is
+                    # actually a regular file (not a directory named pom.xml).
+                    if os.path.isfile(candidate):
+                        pom_files.append(candidate)
 
         # ── Discover all Java and XSLT source files ───────────────────────────
         java_files = find_files_by_extension(abs_path, [".java"])
