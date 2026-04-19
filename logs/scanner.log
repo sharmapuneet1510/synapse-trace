@@ -1,0 +1,10 @@
+{"timestamp": "2026-03-31T09:59:23.030306+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping empty POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpqfdba71x/pom.xml"}
+{"timestamp": "2026-03-31T09:59:23.030626+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping empty POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpqfdba71x/ws_pom.xml"}
+{"timestamp": "2026-03-31T09:59:23.030841+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping malformed POM /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpqfdba71x/bad_pom.xml: no element found: line 1, column 19"}
+{"timestamp": "2026-03-31T09:59:23.031017+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping malformed POM /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpqfdba71x/bom_pom.xml: not well-formed (invalid token): line 1, column 1"}
+{"timestamp": "2026-03-31T10:02:21.330943+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping empty POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/pom.xml"}
+{"timestamp": "2026-03-31T10:02:21.331282+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping empty POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/ws_pom.xml"}
+{"timestamp": "2026-03-31T10:02:21.331497+00:00", "level": "WARNING", "module": "scanner", "message": "Skipping malformed POM /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/bad_pom.xml: no element found: line 1, column 19"}
+{"timestamp": "2026-03-31T10:02:21.331735+00:00", "level": "DEBUG", "module": "scanner", "message": "Parsed POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/bom_pom.xml -> com.example:trade-service:1.0.0"}
+{"timestamp": "2026-03-31T10:02:21.332404+00:00", "level": "WARNING", "module": "scanner", "message": "pom.xml not found: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/submod/pom.xml"}
+{"timestamp": "2026-03-31T10:02:21.332607+00:00", "level": "DEBUG", "module": "scanner", "message": "Parsed POM: /var/folders/c3/h4gsm_456jl_7887z1q79n1h0000gn/T/tmpuzoc_4kq/plain_pom.xml -> org.test:my-lib:2.0"}

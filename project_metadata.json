@@ -1,0 +1,16 @@
+{
+  "project_name": "synapse-trace",
+  "project_slug": "synapse-trace",
+  "project_path": "/Users/puneetsharma/Workspace/projects/ai-lab/synapse-trace",
+  "execplane_project_id": "replace-synapse-trace-id",
+  "execplane_base_url": "http://localhost:8000",
+  "copied_files": [
+    "FRONTEND_INSTRUCTIONS.md",
+    "BACKEND_INSTRUCTIONS.md",
+    "NON_NEGOTIABLE_DEVELOPMENT_RULES.md",
+    "REQUIREMENT_MANAGEMENT_INSTRUCTIONS.md",
+    "AI_USAGE_INSTRUCTIONS.md",
+    "CLAUDE_MASTER_INSTRUCTIONS.md"
+  ],
+  "skipped_missing_files": []
+}

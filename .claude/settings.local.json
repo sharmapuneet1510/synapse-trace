@@ -44,7 +44,17 @@
       "Bash(xargs sed:*)",
       "Bash(grep -r modules. /Users/puneetsharma/Workspace/projects/ai-lab/synapse-trace/backend/ --include=*.yaml --include=*.yml 2)",
       "Bash(/dev/null grep:*)",
-      "Bash(cd /Users/puneetsharma/Workspace/projects/ai-lab/synapse-trace/frontend npm run build)"
+      "Bash(cd /Users/puneetsharma/Workspace/projects/ai-lab/synapse-trace/frontend npm run build)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(head grep:*)",
+      "Bash(head -15 grep -r \"^import\\\\|^from\" /Users/puneetsharma/Workspace/projects/ai-lab/synapse-trace/backend/app/database.py)",
+      "Bash(__NEW_LINE_3a7d827bcaccb1d5__ git:*)",
+      "Bash(__NEW_LINE_120727eb4eb8e48d__ git:*)",
+      "Bash(sips -s format jpeg /Users/puneetsharma/Downloads/IMG_9747.HEIC --out /tmp/IMG_9747.jpg --resampleWidth 1200)",
+      "Bash(sips -s format jpeg /Users/puneetsharma/Downloads/IMG_9750.HEIC --out /tmp/img9750.jpg --resampleWidth 1200)",
+      "Bash(sips -s format jpeg /Users/puneetsharma/Downloads/IMG_9749.HEIC --out /tmp/img9749.jpg --resampleWidth 1200)",
+      "Bash(sips:*)"
     ]
   }
 }
